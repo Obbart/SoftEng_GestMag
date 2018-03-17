@@ -1,6 +1,6 @@
 {
 	"version": 0.02,
-	"log_level": "DEBUG",
+	"log_level": "INFO",
 	"mqtt": {
 		"addr": "localhost",
 		"keepalive": 30,
