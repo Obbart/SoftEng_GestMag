@@ -1,0 +1,53 @@
+{
+	"version": 0.02,
+	"log_level": "DEBUG",
+	"mqtt": {
+		"addr": "localhost",
+		"keepalive": 30,
+		"ini2all": "gestmag/ini2all",
+		"all2ini": "gestmag/all2ini",
+		"main2db": "gestmag/main2db",
+		"db2main": "gestmag/main2db",
+		"main2plc": "gestmag/db2main",
+		"plc2main": "gestmag/plc2main",
+		"main2cnc": "gestmag/main2cnc",
+		"cnc2main": "gestmag/cnc2main",
+		"main2gui": "gestmag/main2gui",
+		"gui2main": "gestmag/gui2main",
+		"reconRetry": 5,
+		"pollPeriod": 5
+	},
+	"db": {
+		"modName": "GestMag_DB",
+		"hostname": "localhost",
+		"port": null,
+		"user": "softswag",
+		"password": "softswag",
+		"database": "GestMagDB",
+		"dbType": "QMYSQL"
+	},
+	"init": {
+		"modName": "GestMag_INIT",
+		"start_main": true,
+		"start_db": true,
+		"start_cnc": true,
+		"start_plc": true,
+		"start_gui": false
+	},
+	"main": {
+		"modName": "GestMag_MAIN",
+		"mag": {
+			"w": 10,
+			"h": 10
+		}
+	},
+	"plc": {
+		"modName": "GestMag_PLC"
+	},
+	"cnc": {
+		"modName": "GestMag_CNC"
+	},
+	"gui": {
+		"modName": "GestMag_GUI"
+	}
+}
