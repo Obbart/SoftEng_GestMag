@@ -7,6 +7,7 @@ Created on 28 feb 2018
 2018-03-14    Emanuele    Change Grammar to python3.6, problems in executing
 2018-03-15    Emanuele    Solved execution problems, first MySql implementation
 2018-03-21    Davide      Git Join :) yay
+2018-03-21    Emanuele     PullTest
 '''
 
 import json
