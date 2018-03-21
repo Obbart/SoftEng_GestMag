@@ -22,18 +22,19 @@ class GestMag_Thread(threading.Thread):
     def __init__(self,conf,mqttconf):
         super(GestMag_Thread,self).__init__()
         self.isRunning=True
+        self.pollAck=False
         
         self.mqttConf=mqttconf  #,connection and poll timer setup
         self.client=mqtt.Client(protocol=mqtt.MQTTv31)
         self.reconnectRetry=0
-        self.pollTimer=threading.Timer(self.mqttConf['pollPeriod'],self.sendPoll)
         
         self.log=MyLogger(conf['modName'],deblevel).logger()  #logger setup using thread name
         self.setName(conf['modName']) 
                 
-    def sendPoll(self): #automatic alive signal to init every x seconds
+    def sendPoll(self): #automatic alive signal to init every x second
+        self.pollAck=False
         rc=self.client.publish(self.mqttConf['all2ini'], str(self.getName()))
-        if rc.is_published()==True:
+        if rc.is_published()==True or True:
             self.reconnectRetry=0   #sense if connected
         else:   #if not connected retry connection, if max retry kill thread
             if self.reconnectRetry <= self.mqttConf['reconRetry']:
@@ -45,6 +46,10 @@ class GestMag_Thread(threading.Thread):
         pass
     
     def on_broadcast(self, client, userdata, msg):
+        msg=msg.payload
+        if 'KILL' in msg:
+            self.kill()
+            pass
         pass
 
     def connectMqtt(self, subList):
@@ -53,7 +58,6 @@ class GestMag_Thread(threading.Thread):
                                    keepalive=self.mqttConf['keepalive'])
             self.client.subscribe(self.mqttConf['ini2all'])
             self.client.message_callback_add(self.mqttConf['ini2all'], self.on_broadcast)
-            self.pollTimer.start()
             for i in subList:
                 self.client.subscribe(i)
                 self.log.debug("Subsribed to: {}".format(i))

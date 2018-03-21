@@ -26,7 +26,8 @@ class CNC_Com(GestMag_Thread):
         self.log.info("Thread STARTED")
         
         while self.isRunning:
-            time.sleep(5)
+            self.sendPoll()
+            time.sleep(self.mqttConf["pollPeriod"])
             pass
         
         self.log.info("Thread STOPPED")

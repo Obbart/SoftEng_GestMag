@@ -43,9 +43,8 @@ class GestMag_Main(GestMag_Thread):
         self.log.info("Thread STARTED")
         
         while self.isRunning:
-            self.log.info("Thread RUNNING")
-            self.client.publish(self.mqttConf['all2ini'],"MAIN_Thread RUNNING")
-            time.sleep(5)
+            self.sendPoll()
+            time.sleep(self.mqttConf["pollPeriod"])
             pass
         
         self.log.info("Thread STOPPED")
