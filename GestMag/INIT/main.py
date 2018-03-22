@@ -9,6 +9,8 @@ Created on 28 feb 2018
 2018-03-22    Emanuele    Changes in Poll mechanism, inits sends poll and processes respond with timestamp
                             issues in restarting dead threads, respawn threads result as duplicate of original
                             thread that is still alive
+                            UPDATE: thread respawn working correcly, it was only a problem of adding more
+                                    than one handler to the logger inside the thread
 '''
 
 import json
@@ -65,13 +67,16 @@ def sendPoll():
     sendBroadcast(mesg)
     
 def on_broadcast(client, userdata, msg):
-    log.debug('received: {}'.format(msg.payload))
+    #convert incoming string to dictionary
+    log.debug('received: {}'.format(msg.payload)) 
     msg=json.loads(msg.payload)
+    
     if msg['command'] in 'POLL_RESP':
-        threadList[msg['from']]['lastSeen']=msg['ts']
+        threadList[msg['from']]['lastSeen']=msg['ts'] #if it is a poll response update last seen for the thread
     pass
 
 def sendBroadcast(msg):
+    #convert incoming dictionary to string
     log.debug('sent: {}'.format(json.dumps(msg)))
     client.publish(send_broadcast,json.dumps(msg))
     pass
@@ -108,7 +113,7 @@ except:
     exit()
 
 #launch other modules as separate threads
-# possible to automate launch procedure? TODO list
+#possible to automate launch procedure? TODO list
 
 if c_ini['start_main']==True:
     launchMain()
@@ -126,23 +131,22 @@ if c_ini['start_gui']==True:
     pass
 pass
 
-while isRunning == True: 
+while isRunning == True: # init cares only to maintain threads alive
     sendPoll()
     time.sleep(c['mqtt']['pollPeriod'])
-    for t in threadList.keys():
-        thisThread=threadList[t]
+    for t in threadList.keys():     #for every thread launched
+        thisThread=threadList[t]    #grab the thread dictionary
         if int(time.time())-thisThread['lastSeen'] < c['mqtt']['pollPeriod']*2 :
-            pass
+            pass    #if was last seen after X seconds ago pass
         else:
-            log.error('Thread {} is DEAD, restarting...'.format(t))
-            thisThread['th'].isRunning=False
-            currconf=thisThread['th'].conf
+            log.error('Thread {} is DEAD, restarting...'.format(t)) #else delete the thread, keep config
+            currconf=thisThread['th'].co                            #and restart it
             time.sleep(0.1)
-            thisThread['th']._delete()
+            del thisThread['th']
             thisThread['th']=thisThread['cl'](currconf,c['mqtt'])
             thisThread['th'].start()
             time.sleep(0.1)
-            if thisThread['th'].isAlive():
+            if thisThread['th'].isAlive():      #if after restart threa is not alive kill all and exit
                 pass
             else:
                 log.critical('Thread {} is DEAD and cannot be restarted, aborting'.format(t))

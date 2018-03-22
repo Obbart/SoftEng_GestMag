@@ -41,11 +41,9 @@ class GestMag_Main(GestMag_Thread):
         self.client.message_callback_add(self.subList[3], self.on_guiMessage)
         
         self.log.info("Thread STARTED")
-        i=0
         
-        while self.isRunning and i < 3:
+        while self.isRunning:
             time.sleep(self.mqttConf['pollPeriod'])
-            i+=1
             pass
         
         self.kill()

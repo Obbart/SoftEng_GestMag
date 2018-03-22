@@ -12,7 +12,7 @@ from MODULES.MyLog import MyLogger
 import paho.mqtt.client as mqtt
 
 # global definition of debug level
-deblevel=logging.DEBUG
+deblevel=logging.INFO
 
 class GestMag_Thread(threading.Thread):
     '''
@@ -50,7 +50,7 @@ class GestMag_Thread(threading.Thread):
               'ts':int(time.time())}
         self.publish(self.mqttConf['all2ini'], mesg)
     
-    def publish(self, topic, msg):
+    def publish(self, topic, msg): #kinda overrides publish method to accept dictionaries as input
         self.log.debug('sent: {}'.format(json.dumps(msg)))
         rc=self.client.publish(topic, json.dumps(msg))
         self.client.loop()
@@ -64,7 +64,7 @@ class GestMag_Thread(threading.Thread):
             self.client.message_callback_add(self.mqttConf['ini2all'], self.on_broadcast)
             for i in subList:
                 self.client.subscribe(i)
-                #self.log.debug("Subsribed to: {}".format(i))
+                self.log.debug("Subsribed to: {}".format(i))
             self.client.loop_start()
             return True
         except: #on error for first connection kill thread immediately
@@ -77,6 +77,5 @@ class GestMag_Thread(threading.Thread):
         self.client.disconnect()
         self.client.loop_stop(force=True)
         time.sleep(0.1)
-        self._stop()
         pass
         
