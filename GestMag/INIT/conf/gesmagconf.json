@@ -30,8 +30,8 @@
 		"modName": "GestMag_INIT",
 		"start_main": true,
 		"start_db": true,
-		"start_cnc": true,
-		"start_plc": true,
+		"start_cnc": false,
+		"start_plc": false,
 		"start_gui": false
 	},
 	"main": {

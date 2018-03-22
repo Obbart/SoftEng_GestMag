@@ -39,15 +39,14 @@ class DB_Com(GestMag_Thread):
             self.log.error("Unable to connect to DB: {}".format(self.db.lastError().text()))
             self.isRunning = False
             return                    
-        query = QtSql.QSqlQuery(self.db)
                   
         self.log.info("Thread STARTED")
         
         while self.isRunning:
-            self.sendPoll()
             time.sleep(self.mqttConf["pollPeriod"])
             pass
         
+        self.db.close()
         self.log.info("Thread STOPPED") 
         pass
         
