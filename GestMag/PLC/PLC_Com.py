@@ -7,7 +7,6 @@ Created on 12 mar 2018
 import time
 from MODULES.GestMag_Threads import GestMag_Thread
 
-
 class PLC_Com(GestMag_Thread):
 
     def __init__(self,conf,mqttconf):
@@ -28,8 +27,7 @@ class PLC_Com(GestMag_Thread):
         self.log.info("Thread STARTED")
         
         while self.isRunning:
-            self.sendPoll()
-            time.sleep(self.mqttConf["pollPeriod"])
+            time.sleep(self.mqttConf['pollPeriod'])
             pass
         
         self.log.info("Thread STOPPED") 

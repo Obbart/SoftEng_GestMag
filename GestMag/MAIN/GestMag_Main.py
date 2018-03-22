@@ -43,10 +43,10 @@ class GestMag_Main(GestMag_Thread):
         self.log.info("Thread STARTED")
         
         while self.isRunning:
-            self.sendPoll()
-            time.sleep(self.mqttConf["pollPeriod"])
+            time.sleep(self.mqttConf['pollPeriod'])
             pass
         
+        self.kill()
         self.log.info("Thread STOPPED")
         return
     

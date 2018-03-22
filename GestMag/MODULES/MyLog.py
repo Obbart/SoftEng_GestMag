@@ -23,7 +23,8 @@ class MyLogger(object):
     def logger(self):
         lg=logging.getLogger(self.name)
         lg.setLevel(self.level)
-        lg.addHandler(self.hld)
+        if len(lg.handlers)<1:
+            lg.addHandler(self.hld)
         return lg
     
     

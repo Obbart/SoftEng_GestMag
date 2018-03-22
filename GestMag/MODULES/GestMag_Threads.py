@@ -5,12 +5,14 @@ Created on 15 mar 2018
 '''
 import logging
 import threading
+import time
+import json
 
 from MODULES.MyLog import MyLogger
 import paho.mqtt.client as mqtt
 
 # global definition of debug level
-deblevel=logging.ERROR
+deblevel=logging.INFO
 
 class GestMag_Thread(threading.Thread):
     '''
@@ -21,36 +23,38 @@ class GestMag_Thread(threading.Thread):
 
     def __init__(self,conf,mqttconf):
         super(GestMag_Thread,self).__init__()
+        self.daemon=True
         self.isRunning=True
-        self.pollAck=False
+        self.conf=conf
         
         self.mqttConf=mqttconf  #,connection and poll timer setup
         self.client=mqtt.Client(protocol=mqtt.MQTTv31)
         self.reconnectRetry=0
         
         self.log=MyLogger(conf['modName'],deblevel).logger()  #logger setup using thread name
-        self.setName(conf['modName']) 
-                
-    def sendPoll(self): #automatic alive signal to init every x second
-        self.pollAck=False
-        rc=self.client.publish(self.mqttConf['all2ini'], str(self.getName()))
-        if rc.is_published()==True or True:
-            self.reconnectRetry=0   #sense if connected
-        else:   #if not connected retry connection, if max retry kill thread
-            if self.reconnectRetry <= self.mqttConf['reconRetry']:
-                self.log.error("MQTT Connection Lost: {}".format(mqtt.error_string(rc.rc)))
-                self.reconnectRetry+=1
-                self.client.reconnect()
-            else:
-                self.kill()
-        pass
+        self.setName(self.conf['modName']) 
+
     
     def on_broadcast(self, client, userdata, msg):
-        msg=msg.payload
-        if 'KILL' in msg:
-            self.kill()
-            pass
+        self.log.debug('received: {}'.format(msg.payload))
+        msg=json.loads(msg.payload)
+        if msg['to'] in 'ALL':
+            if msg['command'] in 'POLL':
+                self.sendPollResponse()
         pass
+    
+    def sendPollResponse(self):
+        mesg={'to':'init',
+              'from':self.getName(),
+              'command':'POLL_RESP',
+              'ts':int(time.time())}
+        self.publish(self.mqttConf['all2ini'], mesg)
+    
+    def publish(self, topic, msg): #kinda overrides publish method to accept dictionaries as input
+        self.log.debug('sent: {}'.format(json.dumps(msg)))
+        rc=self.client.publish(topic, json.dumps(msg))
+        self.client.loop()
+        return rc
 
     def connectMqtt(self, subList):
         try:    #connect to mqtt server and subscribe to passed list and default broadcast from ini
@@ -70,5 +74,8 @@ class GestMag_Thread(threading.Thread):
             
     def kill(self):
         self.isRunning=False
+        self.client.disconnect()
+        self.client.loop_stop(force=True)
+        time.sleep(0.1)
         pass
         
