@@ -24,7 +24,7 @@ from PLC.PLC_Com import PLC_Com
 from CNC.CNC_Com import CNC_Com
 import paho.mqtt.client as mqtt
 
-log=MyLogger("GestMag_INIT",logging.DEBUG).logger()
+log=MyLogger("GestMag_INIT",logging.INFO).logger()
 threadList={}
 
 def launchMain():
@@ -81,6 +81,27 @@ def sendBroadcast(msg):
     client.publish(send_broadcast,json.dumps(msg))
     pass
 
+def checkThreads():
+    for t in threadList.keys():     #for every thread launched
+        thisThread=threadList[t]    #grab the thread dictionary
+        if int(time.time())-thisThread['lastSeen'] < c['mqtt']['pollPeriod']*2 :
+            pass    #if was last seen after X seconds ago pass
+        else:
+            log.error('Thread {} is DEAD, restarting...'.format(t)) #else delete the thread, keep config
+            currconf=thisThread['th'].co                            #and restart it
+            time.sleep(0.1)
+            del thisThread['th']
+            thisThread['th']=thisThread['cl'](currconf,c['mqtt'])
+            thisThread['th'].start()
+            time.sleep(0.1)
+            if thisThread['th'].isAlive():      #if after restart threa is not alive kill all and exit
+                pass
+            else:
+                log.critical('Thread {} is DEAD and cannot be restarted, aborting'.format(t))
+                isRunning=False
+                break
+    pass
+
 
 #######################################################
 #################### MAIN_LOOP ########################
@@ -134,24 +155,6 @@ pass
 while isRunning == True: # init cares only to maintain threads alive
     sendPoll()
     time.sleep(c['mqtt']['pollPeriod'])
-    for t in threadList.keys():     #for every thread launched
-        thisThread=threadList[t]    #grab the thread dictionary
-        if int(time.time())-thisThread['lastSeen'] < c['mqtt']['pollPeriod']*2 :
-            pass    #if was last seen after X seconds ago pass
-        else:
-            log.error('Thread {} is DEAD, restarting...'.format(t)) #else delete the thread, keep config
-            currconf=thisThread['th'].co                            #and restart it
-            time.sleep(0.1)
-            del thisThread['th']
-            thisThread['th']=thisThread['cl'](currconf,c['mqtt'])
-            thisThread['th'].start()
-            time.sleep(0.1)
-            if thisThread['th'].isAlive():      #if after restart threa is not alive kill all and exit
-                pass
-            else:
-                log.critical('Thread {} is DEAD and cannot be restarted, aborting'.format(t))
-                isRunning=False
-                break
                 
 client.disconnect()
 
