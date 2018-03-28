@@ -4,10 +4,11 @@ Created on 12 mar 2018
 @author: Emanuele
 '''
 import time
+import copy
 from MODULES.GestMag_Threads import GestMag_Thread
 
 from PyQt5 import QtSql
-from PyQt5.Qt import QSql
+import PyQt5
 
 class DB_Com(GestMag_Thread):
 
@@ -26,16 +27,14 @@ class DB_Com(GestMag_Thread):
     
     #################### DB_FUNC ########################
     def dbQuery(self, q):
-        try:
-            q.exec()
-            return q.record()
-        except:
-            self.dbError(q.lastError().text())
-            return False
-            pass
+        q.exec()
+        return q.record()
+        self.dbError(q.lastError().text())
+        return False
+        pass
         
     def dbError(self, txt):
-        self.log.error("SQL DB Error:\n{}".format(txt))
+        self.log.error("SQL DB Error: {}".format(txt))
         pass
     #################### DB_FUNC ######################
     
@@ -47,36 +46,53 @@ class DB_Com(GestMag_Thread):
     def addMaterial(self, matProp):
         query = QtSql.QSqlQuery()
         query.prepare('INSERT INTO Material (MaterialID, density, lift, color, restTime) \
-                        VALUES (:matid, :dens, :lift, :col, :rst)')
+                        VALUES (:matid, :dens, :lift, :col, :rst);')
         for prop in matProp.keys():
-            query.bindValue(prop, matProp[prop])
+            query.bindValue(':'+prop, matProp[prop])
         return self.dbQuery(query)
     
     def getMaterial(self, matID=None, prop=None): #returns a property from a material id or a list of materials with all properties
         query = QtSql.QSqlQuery()
-        query.prepare('SELECT :prop FROM Material \
-                        WHERE MaterialID == :id')
+        query.prepare("SELECT :prop FROM Material \
+                        WHERE MaterialID LIKE :id ;")
+        
         if prop is not None:
             query.bindValue('prop', prop)
         else:
-            query.bindValue('prop', '*')
+            query.bindValue(':prop', '*')
         
         if matID is not None:
-            query.bindValue('id', matID)
+            query.bindValue(':id', matID)
         else:
-            query.bindValue('id', '*')
+            query.bindValue(':id', '%')
             
-        record=self.dbQuery(query)
+        #record=self.dbQuery(query)
+        #print (query.exec("SELECT * FROM Material WHERE MaterialID LIKE '%'"))
+        print(str(query.executedQuery()))
+        query.exec_()
+        print(query.isValid())
+        record=query.record()
         resp=[]
         m={}
         while query.next():
             for k in range(record.count()):
-                m[record.fieldName(k)]=query.value(k)
-            resp.append(m)
+                if isinstance(query.value(k), PyQt5.QtCore.QTime):
+                    m[record.fieldName(k)]=query.value(k).toPyTime()
+                else:
+                    m[record.fieldName(k)]=query.value(k)
+            resp.append(copy.deepcopy(m))
             m.clear()
         return resp
     
-    def delMaterial(self):
+    def delMaterial(self, matID=None):
+        query = QtSql.QSqlQuery()
+        query.prepare("DELETE FROM Material \
+                        WHERE MaterialID LIKE ':id'")
+        if matID is not None:
+            query.bindValue(':id', matID)
+            return self.dbQuery(query)
+        else:
+            return False                    
         pass
     
     def addBlock(self):
@@ -115,8 +131,8 @@ class DB_Com(GestMag_Thread):
         
         while self.isRunning:
             time.sleep(self.mqttConf["pollPeriod"])
-            self.getMaterial()
-            print(self.getMaterial())
+            mm=self.getMaterial(prop='lift')
+            print(mm)
             pass
         
         self.db.close()

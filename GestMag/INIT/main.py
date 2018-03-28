@@ -31,7 +31,10 @@ def launchMain():
     gmag_main=GestMag_Main(c['main'],c['mqtt'])
     log.debug("Starting {}".format(c['main']['modName']))
     gmag_main.start()
-    threadList['{}'.format(gmag_main.name)]={'th':gmag_main,'lastSeen':int(time.time()),'cl':GestMag_Main}
+    threadList['{}'.format(gmag_main.name)]={'th':gmag_main,
+                                             'lastSeen':int(time.time()),
+                                             'cl':GestMag_Main
+                                             }
     time.sleep(0.1)
     pass
 
