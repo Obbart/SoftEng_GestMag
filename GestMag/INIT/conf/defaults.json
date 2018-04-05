@@ -1,0 +1,22 @@
+{
+	"msg": {
+		"to": null,
+		"from": null,
+		"command": null
+	},
+	"material": {
+		"matID": 0,
+		"lift": 0,
+		"density": 0,
+		"color": 0,
+		"restTime": 0
+	},
+	"block": {
+		"matID": 0,
+		"blockID": 0,
+		"width": 0,
+		"height": 0,
+		"length": 0,
+		"date":0
+	}
+}

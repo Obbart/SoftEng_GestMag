@@ -1,5 +1,5 @@
 {
-	"version": 0.03,
+	"version": 0.04,
 	"log_level": "INFO",
 	"mqtt": {
 		"addr": "localhost",
@@ -24,7 +24,7 @@
 		"user": "softswag",
 		"password": "softswag",
 		"database": "GestMagDB",
-		"dbType": "QMYSQL"
+		"dbType": "QMYSQL3"
 	},
 	"init": {
 		"modName": "GestMag_INIT",
@@ -32,7 +32,7 @@
 		"start_db": true,
 		"start_cnc": true,
 		"start_plc": true,
-		"start_gui": false
+		"start_gui": true
 	},
 	"main": {
 		"modName": "GestMag_MAIN",

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>GestMag_GUI</class>
- <widget class="QMainWindow" name="GestMag_GUI">
+ <class>GestMag_WINDOW</class>
+ <widget class="QMainWindow" name="GestMag_WINDOW">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -9,6 +9,12 @@
     <width>800</width>
     <height>600</height>
    </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
@@ -18,22 +24,337 @@
     <item>
      <widget class="QTabWidget" name="tab_mainWindow">
       <property name="currentIndex">
-       <number>1</number>
+       <number>2</number>
       </property>
       <widget class="QWidget" name="tab_view">
        <attribute name="title">
         <string>Storage</string>
        </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_2">
+        <item>
+         <widget class="QTableView" name="tableView">
+          <attribute name="horizontalHeaderVisible">
+           <bool>false</bool>
+          </attribute>
+          <attribute name="horizontalHeaderCascadingSectionResizes">
+           <bool>false</bool>
+          </attribute>
+          <attribute name="verticalHeaderVisible">
+           <bool>false</bool>
+          </attribute>
+         </widget>
+        </item>
+       </layout>
       </widget>
       <widget class="QWidget" name="tab_control">
        <attribute name="title">
         <string>Control</string>
        </attribute>
       </widget>
-      <widget class="QWidget" name="tab">
+      <widget class="QWidget" name="tab_manual">
        <attribute name="title">
         <string>Manual</string>
        </attribute>
+       <layout class="QGridLayout" name="gridLayout">
+        <item row="1" column="0">
+         <widget class="QGroupBox" name="groupBox_2">
+          <property name="title">
+           <string>GroupBox</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QGroupBox" name="groupBox_4">
+          <property name="title">
+           <string>GroupBox</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="0">
+         <widget class="QGroupBox" name="grp_material">
+          <property name="title">
+           <string>AddMaterial</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_3">
+           <item row="1" column="1" colspan="2">
+            <widget class="QLineEdit" name="txt_lift">
+             <property name="inputMask">
+              <string>000</string>
+             </property>
+             <property name="text">
+              <string>0</string>
+             </property>
+             <property name="placeholderText">
+              <string/>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="0">
+            <widget class="QLabel" name="label_8">
+             <property name="text">
+              <string>restTime</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="label_6">
+             <property name="text">
+              <string>density</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="2">
+            <widget class="QTimeEdit" name="tim_restTime">
+             <property name="maximumDateTime">
+              <datetime>
+               <hour>23</hour>
+               <minute>59</minute>
+               <second>59</second>
+               <year>2000</year>
+               <month>1</month>
+               <day>1</day>
+              </datetime>
+             </property>
+             <property name="currentSection">
+              <enum>QDateTimeEdit::HourSection</enum>
+             </property>
+             <property name="displayFormat">
+              <string>HH:mm</string>
+             </property>
+             <property name="calendarPopup">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1" colspan="2">
+            <widget class="QLineEdit" name="txt_color">
+             <property name="text">
+              <string>0</string>
+             </property>
+             <property name="maxLength">
+              <number>10</number>
+             </property>
+             <property name="placeholderText">
+              <string/>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="label_7">
+             <property name="text">
+              <string>color</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="label_5">
+             <property name="text">
+              <string>lift</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="0" colspan="2">
+            <widget class="QLabel" name="label_4">
+             <property name="text">
+              <string>Material_ID</string>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="2">
+            <widget class="QPushButton" name="btn_addMaterial">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="baseSize">
+              <size>
+               <width>0</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Add Material</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="2">
+            <widget class="QLineEdit" name="txt_matID">
+             <property name="text">
+              <string>AAA</string>
+             </property>
+             <property name="maxLength">
+              <number>20</number>
+             </property>
+             <property name="placeholderText">
+              <string/>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1" colspan="2">
+            <widget class="QLineEdit" name="txt_density">
+             <property name="inputMask">
+              <string>000</string>
+             </property>
+             <property name="text">
+              <string>0</string>
+             </property>
+             <property name="placeholderText">
+              <string/>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QGroupBox" name="grp_block">
+          <property name="title">
+           <string>AddBlock</string>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_2">
+           <item row="1" column="1" colspan="2">
+            <widget class="QLineEdit" name="txt_blockID">
+             <property name="placeholderText">
+              <string>AAAA</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="3">
+            <widget class="QPushButton" name="btn_genID">
+             <property name="text">
+              <string>Generate</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="0">
+            <widget class="QLabel" name="label">
+             <property name="text">
+              <string>Material_ID</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="label_2">
+             <property name="text">
+              <string>Block_ID</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0" colspan="2">
+            <widget class="QLabel" name="label_3">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>100</width>
+               <height>16777215</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Dimension X,Y,Z</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QComboBox" name="cmb_matID">
+             <property name="maxVisibleItems">
+              <number>10</number>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="3">
+            <widget class="QPushButton" name="btn_addBlock">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="baseSize">
+              <size>
+               <width>0</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Add Block</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="2" colspan="2">
+            <layout class="QHBoxLayout" name="horizontalLayout_2">
+             <property name="sizeConstraint">
+              <enum>QLayout::SetNoConstraint</enum>
+             </property>
+             <item>
+              <widget class="QLineEdit" name="txt_dimX">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>50</width>
+                 <height>16777215</height>
+                </size>
+               </property>
+               <property name="placeholderText">
+                <string>0</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLineEdit" name="txt_dimY">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>50</width>
+                 <height>16777215</height>
+                </size>
+               </property>
+               <property name="placeholderText">
+                <string>0</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLineEdit" name="txt_dimZ">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>50</width>
+                 <height>16777215</height>
+                </size>
+               </property>
+               <property name="placeholderText">
+                <string>0</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+       </layout>
       </widget>
      </widget>
     </item>
@@ -66,6 +387,26 @@
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
+ <tabstops>
+  <tabstop>tab_mainWindow</tabstop>
+  <tabstop>txt_matID</tabstop>
+  <tabstop>txt_lift</tabstop>
+  <tabstop>txt_density</tabstop>
+  <tabstop>txt_color</tabstop>
+  <tabstop>tim_restTime</tabstop>
+  <tabstop>btn_addMaterial</tabstop>
+  <tabstop>cmb_matID</tabstop>
+  <tabstop>txt_blockID</tabstop>
+  <tabstop>btn_genID</tabstop>
+  <tabstop>txt_dimX</tabstop>
+  <tabstop>txt_dimY</tabstop>
+  <tabstop>txt_dimZ</tabstop>
+  <tabstop>btn_addBlock</tabstop>
+  <tabstop>tableView</tabstop>
+  <tabstop>checkBox</tabstop>
+  <tabstop>radioButton</tabstop>
+  <tabstop>pushButton</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

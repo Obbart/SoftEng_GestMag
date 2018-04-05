@@ -11,18 +11,50 @@ Created on 28 feb 2018
                             thread that is still alive
                             UPDATE: thread respawn working correcly, it was only a problem of adding more
                                     than one handler to the logger inside the thread
+2018-04-05    Emanuele    Added logic to interact with database:
+                            add blocks, add materials, get block list, get material list
+                          Defined basic structure for commands between modules
+                          Addes file for default dictionaries
+                          TODO: string cleaning to avoid SQL injection
 '''
 
 import json
 import logging
-import time
+import time,sys
+import PyQt5
 
 from MODULES.MyLog import MyLogger
 from MAIN.GestMag_Main import GestMag_Main
 from DB.DB_Com import DB_Com
 from PLC.PLC_Com import PLC_Com
 from CNC.CNC_Com import CNC_Com
+from GUI.GestMag_Gui import GestMag_GuInterface
 import paho.mqtt.client as mqtt
+
+class RepeatingTimer(object):
+    """
+    USAGE:
+    from time import sleep
+    r = RepeatingTimer(_print, 0.5, "hello")
+    r.start(); sleep(2); r.interval = 0.05; sleep(2); r.stop()
+    """
+
+    def __init__(self, function, interval, *args, **kwargs):
+        super(RepeatingTimer, self).__init__()
+        self.args = args
+        self.kwargs = kwargs
+        self.function = function
+        self.interval = interval
+
+    def start(self):
+        self.callback()
+        
+    def stop(self):
+        self.interval = False
+        
+    def callback(self):
+        if self.interval:
+            self.function(*self.args, **self.kwargs)
 
 log=MyLogger("GestMag_INIT",logging.INFO).logger()
 threadList={}
@@ -62,6 +94,21 @@ def launchPLC():
     time.sleep(0.1)
     pass
 
+def launchUI():
+    '''
+    gmag_ui=GestMag_GuiThread(c['gui'],c['mqtt'])
+    log.debug("Starting {}".format(c['gui']['modName']))
+    gmag_ui.start()
+    threadList['{}'.format(gmag_ui.name)]={'th':gmag_ui,'lastSeen':int(time.time()),'cl':GestMag_GuiThread}
+    time.sleep(0.1)
+    '''
+    global app
+    global wind
+    app=PyQt5.QtWidgets.QApplication(sys.argv)
+    wind=GestMag_GuInterface(c['gui'],c['mqtt'])
+    threadList['{}'.format(wind.common.name)]={'th':wind,'lastSeen':int(time.time()),'cl':GestMag_GuInterface}
+    wind.show()
+    
 def sendPoll():
     mesg={'from':c_ini['modName'],
           'to': 'ALL',
@@ -109,6 +156,7 @@ def checkThreads():
 #######################################################
 #################### MAIN_LOOP ########################
 #######################################################
+
 try:                            #load configuration file
     fp=open("conf/gesmagconf.json") 
     c=json.load(fp)
@@ -151,19 +199,25 @@ if c_ini['start_cnc']==True:
 if c_ini['start_plc']==True:
     launchPLC()
 if c_ini['start_gui']==True:
-    print('INIT_Gui not present yet')
+    launchUI()
     pass
 pass
 
+last=int(time.time())
 while isRunning == True: # init cares only to maintain threads alive
-    sendPoll()
-    time.sleep(c['mqtt']['pollPeriod'])
-                
+    if int(time.time()) - last > c['mqtt']['pollPeriod']:  
+        last=int(time.time())  
+        sendPoll()
+    app.processEvents()
+    time.sleep(0.05)
+
 client.disconnect()
 
 #######################################################
 #################### MAIN_LOOP ########################
 #######################################################
+
+
 
     
 

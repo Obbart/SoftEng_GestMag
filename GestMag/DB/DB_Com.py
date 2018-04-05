@@ -5,6 +5,7 @@ Created on 12 mar 2018
 '''
 import time
 import copy
+import json
 from MODULES.GestMag_Threads import GestMag_Thread
 
 from PyQt5 import QtSql
@@ -27,10 +28,12 @@ class DB_Com(GestMag_Thread):
     
     #################### DB_FUNC ########################
     def dbQuery(self, q):
-        q.exec()
-        return q.record()
-        self.dbError(q.lastError().text())
-        return False
+        query = QtSql.QSqlQuery(self.db)
+        if query.exec(q):
+            return query
+        else:
+            self.dbError(query.lastError().text())
+            return False
         pass
         
     def dbError(self, txt):
@@ -40,65 +43,90 @@ class DB_Com(GestMag_Thread):
     
     #################### MQTT_FUNC ########################
     def on_mainMessage(self, client, userdata, msg):
+        self.log.debug('received: {}'.format(msg.payload))
+        msg=json.loads(msg.payload)
+        if msg['to'] == self.name:
+            command=msg['command']
+            if command=='ADDMAT':
+                self.addMaterial(msg['prop'])
+                self.updMaterials() #send a updated material list to main 
+            elif command=='UPDMAT':
+                self.updMaterials() #send a updated material list to main
+            elif command=='DELMAT':
+                pass
+            elif command=='GETMAT':
+                matList=self.getMaterial(matID=msg['matID'], prop=msg['prop'])
+                mesg={'from':self.getName(),
+                      'to':'GestMag_MAIN',
+                      'command': 'GETMAT_RESP',
+                      'matlist': matList}
+                self.publish(self.mqttConf['db2main'], mesg)
+                pass
+            elif command=='ADDBLK':
+                self.addBlock(msg['prop'])
+                self.updBlocks() #send an updated block list to main
+                pass
+            elif command=='UPDBLK':
+                self.updBlocks() #send an updated block list to main
+            elif command=='GETBLK':
+                blkList=self.getBlock(blockID=msg['blkID'])
+                mesg={'from':self.getName(),
+                      'to':'GestMag_MAIN',
+                      'command': 'GETBLK_RESP',
+                      'blklist': blkList}
+                self.publish(self.mqttConf['db2main'], mesg)
+                pass
+            elif command=='DELBLK':
+                pass
+            else:
+                pass
         pass
     #################### MQTT_FUNC ########################
     
     def addMaterial(self, matProp):
-        query = QtSql.QSqlQuery()
-        query.prepare('INSERT INTO Material (MaterialID, density, lift, color, restTime) \
-                        VALUES (:matid, :dens, :lift, :col, :rst);')
-        for prop in matProp.keys():
-            query.bindValue(':'+prop, matProp[prop])
-        return self.dbQuery(query)
+        q='INSERT INTO Material (materialID, density, lift, color, restTime) VALUES (\'{matID}\', \'{density}\', \'{lift}\', \'{color}\', \'{restTime}\')'
+        q=q.format(**matProp)
+        rc=self.dbQuery(q)
+        self.log.debug(rc)
+        return rc
     
-    def getMaterial(self, matID=None, prop=None): #returns a property from a material id or a list of materials with all properties
-        query = QtSql.QSqlQuery()
-        query.prepare("SELECT :prop FROM Material \
-                        WHERE MaterialID LIKE :id ;")
-        
-        if prop is not None:
-            query.bindValue('prop', prop)
-        else:
-            query.bindValue(':prop', '*')
-        
-        if matID is not None:
-            query.bindValue(':id', matID)
-        else:
-            query.bindValue(':id', '%')
-            
-        #record=self.dbQuery(query)
-        #print (query.exec("SELECT * FROM Material WHERE MaterialID LIKE '%'"))
-        print(str(query.executedQuery()))
-        query.exec_()
-        print(query.isValid())
-        record=query.record()
-        resp=[]
-        m={}
-        while query.next():
-            for k in range(record.count()):
-                if isinstance(query.value(k), PyQt5.QtCore.QTime):
-                    m[record.fieldName(k)]=query.value(k).toPyTime()
-                else:
-                    m[record.fieldName(k)]=query.value(k)
-            resp.append(copy.deepcopy(m))
-            m.clear()
-        return resp
+    def getMaterial(self, matID=None, prop=None): 
+        #returns a property from a material id or a list of materials with all properties
+        q="SELECT {pr} FROM Material WHERE MaterialID LIKE '{id}'"
+        if prop is None:
+            prop='*'
+        if matID is None:
+            matID='%'
+        query=self.dbQuery(q.format(pr=prop,id=matID))
+        return self.query2dict(query)
     
     def delMaterial(self, matID=None):
         query = QtSql.QSqlQuery()
-        query.prepare("DELETE FROM Material \
-                        WHERE MaterialID LIKE ':id'")
+        q="DELETE FROM Material WHERE MaterialID LIKE '{id}'"
+        
         if matID is not None:
-            query.bindValue(':id', matID)
-            return self.dbQuery(query)
+            q.format(id=matID)
+            return query.exec(q)
         else:
             return False                    
         pass
     
-    def addBlock(self):
+    def addBlock(self,blkProp):
+        q='INSERT INTO Blocks (blockID, blockMaterial, blockProductionDate, blockWidth, blockHeight, blockDepth) \
+        VALUES (\'{blockID}\', \'{matID}\', \'{date}\', \'{width}\', \'{height}\', \'{length}\')'
+        q=q.format(**blkProp)
+        self.dbQuery(q)
         pass
     
-    def getBlock(self):
+    def getBlock(self, blockID=None):
+        #returns a block or a list of blocks with all properties
+        q="SELECT * FROM Blocks WHERE blockID LIKE '{id}'"
+        if blockID is None:
+            blockID='%'
+            pass
+        query=self.dbQuery(q.format(id=blockID))
+        return self.query2dict(query)
+        
         pass
     
     def delBlock(self):
@@ -112,6 +140,39 @@ class DB_Com(GestMag_Thread):
     
     def delRecipe(self):
         pass
+    
+    def updMaterials(self):
+        matList=self.getMaterial()
+        mesg={'from':self.getName(),
+              'to':'GestMag_MAIN',
+              'command': 'MATLIST',
+              'materials': matList}
+        self.publish(self.mqttConf['db2main'], mesg)
+        pass
+    
+    def updBlocks(self):
+        blkList=self.getBlock()
+        mesg={'from':self.getName(),
+              'to':'GestMag_MAIN',
+              'command': 'BLKLIST',
+              'blocks': blkList}
+        self.publish(self.mqttConf['db2main'], mesg)
+        pass
+    
+    def query2dict(self, query): # converts the results of a query into a list of key value dictionary
+        record=query.record()
+        resp=[]
+        m={}
+        while query.next():
+            for k in range(record.count()):
+                if isinstance(query.value(k), PyQt5.QtCore.QTime):
+                    m[record.fieldName(k)]=query.value(k).toPyTime()
+                else:
+                    m[record.fieldName(k)]=query.value(k)
+            resp.append(copy.deepcopy(m))
+            m.clear()
+        self.log.info(str(resp))
+        return resp
     
 
     #######################################################
@@ -129,10 +190,10 @@ class DB_Com(GestMag_Thread):
                   
         self.log.info("Thread STARTED")
         
+        self.updMaterials() #on startup send a list of updated materials to main
+        
         while self.isRunning:
             time.sleep(self.mqttConf["pollPeriod"])
-            mm=self.getMaterial(prop='lift')
-            print(mm)
             pass
         
         self.db.close()
