@@ -49,6 +49,9 @@ class GestMag_GuInterface(QMainWindow):
                 for m in matList:
                     matNames.append(m['materialID'])
                 self.ui.cmb_matID.addItems(matNames)
+                pass
+            elif mesg['command'] == 'DBMSG':
+                self.ui.statusbar.showMessage(mesg['msg'])
             pass
         pass
     
@@ -89,14 +92,5 @@ class GestMag_GuInterface(QMainWindow):
         self.ui.txt_blockID.setText(uid)
         return uid
         pass
-       
-'''
-if __name__ == '__main__':
-    app=PyQt5.QtWidgets.QApplication(sys.argv)
-    wind=GestMag_GuInterface()
-    wind.show()
-    sys.exit(app.exec())
-    pass
-'''
     
     

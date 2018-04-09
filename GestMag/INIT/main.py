@@ -31,6 +31,7 @@ from CNC.CNC_Com import CNC_Com
 from GUI.GestMag_Gui import GestMag_GuInterface
 import paho.mqtt.client as mqtt
 
+
 class RepeatingTimer(object):
     """
     USAGE:

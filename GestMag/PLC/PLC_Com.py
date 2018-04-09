@@ -5,10 +5,9 @@ Created on 12 mar 2018
 '''
 
 import time
-import queue
 from MODULES.GestMag_Threads import GestMag_Thread
-from MODULES.GestMag.MODULES.Classes_UML import PLC_Sim
-from multiprocessing.queues import Queue
+from PLC.PLC_Sim import PLC_Sim 
+import queue
 
 class PLC_Com(GestMag_Thread):
 

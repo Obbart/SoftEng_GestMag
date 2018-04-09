@@ -19,9 +19,10 @@ class GestMag_Main(GestMag_Thread):
                       mqttconf['gui2main']]
         
         self.matList=[]
+        self.blkList=[]
         
     def on_dbMessage(self, client, userdata, msg):
-        self.log.debug('received: {}'.format(msg.payload))
+        self.log.debug('received_from_DB: {}'.format(msg.payload))
         mesg=json.loads(msg.payload)
         if mesg['to'] == self.getName():
             if mesg['command'] == 'MATLIST':  #received when a new material is added to the db
@@ -29,6 +30,8 @@ class GestMag_Main(GestMag_Thread):
                 mesg['from']=self.getName()
                 mesg['to']='GestMag_GUI'
                 self.publish(self.mqttConf['main2gui'], mesg) #forward the list to the gui to update the visualization
+            elif mesg['command'] == 'BLKLIST':
+                self.blkList=deepcopy(mesg['blocks'])
             pass
         pass
     
@@ -39,7 +42,7 @@ class GestMag_Main(GestMag_Thread):
         pass
     
     def on_guiMessage(self, client, userdata, msg):
-        self.log.debug('received: {}'.format(msg.payload))
+        self.log.debug('received_from_GUI: {}'.format(msg.payload))
         mesg=json.loads(msg.payload)
         if mesg['to'] == self.getName(): 
             # do something with the message
@@ -53,7 +56,6 @@ class GestMag_Main(GestMag_Thread):
         elif mesg['to'] == 'GestMaa_PLC':
             self.publish(self.mqttConf['main2cnc'], mesg)
             pass 
-        
         pass
     
     
@@ -69,10 +71,8 @@ class GestMag_Main(GestMag_Thread):
         
         self.log.info("Thread STARTED")
         time.sleep(self.mqttConf['pollPeriod'])
-        mesg={'from':self.getName(),
-              'to':'GestMag_DB',
-              'command':'UPDMAT'}
-        self.publish(self.mqttConf['main2db'], mesg)
+        #after starting the thread update information reading the db
+        self.initialUpdate()
         
         while self.isRunning:
             time.sleep(self.mqttConf['pollPeriod'])
@@ -81,6 +81,16 @@ class GestMag_Main(GestMag_Thread):
         self.kill()
         self.log.info("Thread STOPPED")
         return
+    
+    def initialUpdate(self):
+        comlist=['UPDMAT','UPDBLK']
+        for c in comlist:
+            mesg={'from':self.getName(),
+              'to':'GestMag_DB',
+              'command':c}
+            self.publish(self.mqttConf['main2db'], mesg)
+            time.sleep(2)
+        pass
     
     
     

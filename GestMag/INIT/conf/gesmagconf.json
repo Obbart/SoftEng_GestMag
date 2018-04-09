@@ -1,5 +1,5 @@
 {
-	"version": 0.04,
+	"version": 0.05,
 	"log_level": "INFO",
 	"mqtt": {
 		"addr": "localhost",
@@ -7,8 +7,8 @@
 		"ini2all": "gestmag/ini2all",
 		"all2ini": "gestmag/all2ini",
 		"main2db": "gestmag/main2db",
-		"db2main": "gestmag/main2db",
-		"main2plc": "gestmag/db2main",
+		"db2main": "gestmag/db2main",
+		"main2plc": "gestmag/main2plc",
 		"plc2main": "gestmag/plc2main",
 		"main2cnc": "gestmag/main2cnc",
 		"cnc2main": "gestmag/cnc2main",

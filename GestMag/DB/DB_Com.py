@@ -32,7 +32,13 @@ class DB_Com(GestMag_Thread):
         if query.exec(q):
             return query
         else:
-            self.dbError(query.lastError().text())
+            t=query.lastError().text()
+            self.dbError(t)
+            mesg={'from':self.getName(),
+                  'to':'GestMag_GUI',
+                  'command':'DBMSG',
+                  'msg':str(t)}
+            self.publish(self.mqttConf['main2gui'], mesg)
             return False
         pass
         
@@ -79,6 +85,7 @@ class DB_Com(GestMag_Thread):
             elif command=='DELBLK':
                 pass
             else:
+                self.log.error("Unrecognised Command, ignoring..")
                 pass
         pass
     #################### MQTT_FUNC ########################
@@ -189,8 +196,6 @@ class DB_Com(GestMag_Thread):
             return                    
                   
         self.log.info("Thread STARTED")
-        
-        self.updMaterials() #on startup send a list of updated materials to main
         
         while self.isRunning:
             time.sleep(self.mqttConf["pollPeriod"])
