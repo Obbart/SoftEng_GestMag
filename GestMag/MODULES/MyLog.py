@@ -16,7 +16,7 @@ class MyLogger(object):
         self.hld=logging.StreamHandler(sys.stdout)
         self.hld.setLevel(lvl)
         
-        self.fmt = logging.Formatter('%(asctime)s \t%(name)s\t%(levelname)s\t%(message)s')
+        self.fmt = logging.Formatter('%(name)s | %(funcName)s \t%(levelname)s\t%(message)s')
         self.hld.setFormatter(self.fmt)
         return
 

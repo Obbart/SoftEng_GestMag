@@ -1,5 +1,5 @@
 {
-	"version": 0.05,
+	"version": 0.06,
 	"log_level": "INFO",
 	"mqtt": {
 		"addr": "localhost",
@@ -37,8 +37,8 @@
 	"main": {
 		"modName": "GestMag_MAIN",
 		"mag": {
-			"w": 10,
-			"h": 10
+			"x": 5,
+			"y": 5
 		}
 	},
 	"plc": {

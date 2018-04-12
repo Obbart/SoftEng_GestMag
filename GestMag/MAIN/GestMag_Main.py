@@ -20,9 +20,10 @@ class GestMag_Main(GestMag_Thread):
         
         self.matList=[]
         self.blkList=[]
+        self.cellList=[]
         
     def on_dbMessage(self, client, userdata, msg):
-        self.log.debug('received_from_DB: {}'.format(msg.payload))
+        self.log.debug('received: {}'.format(msg.payload))
         mesg=json.loads(msg.payload)
         if mesg['to'] == self.getName():
             if mesg['command'] == 'MATLIST':  #received when a new material is added to the db
@@ -32,6 +33,14 @@ class GestMag_Main(GestMag_Thread):
                 self.publish(self.mqttConf['main2gui'], mesg) #forward the list to the gui to update the visualization
             elif mesg['command'] == 'BLKLIST':
                 self.blkList=deepcopy(mesg['blocks'])
+                mesg['from']=self.getName()
+                mesg['to']='GestMag_GUI'
+                self.publish(self.mqttConf['main2gui'], mesg)
+            elif mesg['command'] == 'CELLLIST':
+                self.cellList=deepcopy(mesg['cells'])
+                mesg['from']=self.getName()
+                mesg['to']='GestMag_GUI'
+                self.publish(self.mqttConf['main2gui'], mesg)
             pass
         pass
     
@@ -42,10 +51,18 @@ class GestMag_Main(GestMag_Thread):
         pass
     
     def on_guiMessage(self, client, userdata, msg):
-        self.log.debug('received_from_GUI: {}'.format(msg.payload))
+        self.log.debug('received: {}'.format(msg.payload))
         mesg=json.loads(msg.payload)
         if mesg['to'] == self.getName(): 
             # do something with the message
+            if mesg['command'] == 'ADDCELLS':
+                mesg['from']=self.getName()
+                mesg['to']='GestMag_DB'
+                mesg['command']='ADDCELL'
+                mesg['prop']={'x':self.conf['mag']['x'],
+                              'y':self.conf['mag']['y']}
+                self.publish(self.mqttConf['main2db'], mesg)
+                pass    
             pass
         elif mesg['to'] == 'GestMag_DB': #publish the message directly to the destination
             self.publish(self.mqttConf['main2db'], mesg)
@@ -83,12 +100,13 @@ class GestMag_Main(GestMag_Thread):
         return
     
     def initialUpdate(self):
-        comlist=['UPDMAT','UPDBLK']
+        comlist=['UPDMAT','UPDBLK','UPDCELL']
         for c in comlist:
             mesg={'from':self.getName(),
               'to':'GestMag_DB',
               'command':c}
             self.publish(self.mqttConf['main2db'], mesg)
+            self.log.info('Initial Update of: {}'.format(c))
             time.sleep(2)
         pass
     

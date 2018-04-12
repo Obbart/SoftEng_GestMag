@@ -12,7 +12,7 @@ from MODULES.MyLog import MyLogger
 import paho.mqtt.client as mqtt
 
 # global definition of debug level
-deblevel=logging.DEBUG
+deblevel=logging.INFO
 
 class GestMag_Thread(threading.Thread):
     '''

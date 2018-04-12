@@ -16,6 +16,8 @@ Created on 28 feb 2018
                           Defined basic structure for commands between modules
                           Addes file for default dictionaries
                           TODO: string cleaning to avoid SQL injection
+2018-05-12    Emanuele    Added more logic to interact with database:
+                            add cells, delete cells, get cells
 '''
 
 import json
@@ -96,13 +98,6 @@ def launchPLC():
     pass
 
 def launchUI():
-    '''
-    gmag_ui=GestMag_GuiThread(c['gui'],c['mqtt'])
-    log.debug("Starting {}".format(c['gui']['modName']))
-    gmag_ui.start()
-    threadList['{}'.format(gmag_ui.name)]={'th':gmag_ui,'lastSeen':int(time.time()),'cl':GestMag_GuiThread}
-    time.sleep(0.1)
-    '''
     global app
     global wind
     app=PyQt5.QtWidgets.QApplication(sys.argv)
@@ -139,7 +134,7 @@ def checkThreads():
             pass    #if was last seen after X seconds ago pass
         else:
             log.error('Thread {} is DEAD, restarting...'.format(t)) #else delete the thread, keep config
-            currconf=thisThread['th'].co                            #and restart it
+            currconf=thisThread['th'].conf                           #and restart it
             time.sleep(0.1)
             del thisThread['th']
             thisThread['th']=thisThread['cl'](currconf,c['mqtt'])
@@ -209,6 +204,7 @@ while isRunning == True: # init cares only to maintain threads alive
     if int(time.time()) - last > c['mqtt']['pollPeriod']:  
         last=int(time.time())  
         sendPoll()
+        checkThreads()
     app.processEvents()
     time.sleep(0.05)
 

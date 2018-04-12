@@ -26,6 +26,7 @@ class GestMag_GuInterface(QMainWindow):
         self.ui.btn_genID.clicked.connect(self.on_genID)
         self.ui.btn_addBlock.clicked.connect(self.on_addBlock)
         self.ui.btn_addMaterial.clicked.connect(self.on_addMaterial)
+        self.ui.btn_createStorage.clicked.connect(self.on_createStorage)
         
         # load defaults dictionaries
         try:
@@ -86,6 +87,13 @@ class GestMag_GuInterface(QMainWindow):
         mesg['prop']=blk
         self.common.publish(self.common.mqttConf['gui2main'],mesg)
         pass   
+    
+    def on_createStorage(self):
+        mesg=deepcopy(self.d['msg'])
+        mesg['from']=self.common.getName()
+        mesg['to']='GestMag_MAIN'
+        mesg['command']='ADDCELLS'
+        self.common.publish(self.common.mqttConf['gui2main'],mesg)
     
     def on_genID(self):
         uid=uuid.uuid4().hex

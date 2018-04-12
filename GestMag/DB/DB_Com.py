@@ -10,6 +10,7 @@ from MODULES.GestMag_Threads import GestMag_Thread
 
 from PyQt5 import QtSql
 import PyQt5
+import uuid
 
 class DB_Com(GestMag_Thread):
 
@@ -29,15 +30,18 @@ class DB_Com(GestMag_Thread):
     #################### DB_FUNC ########################
     def dbQuery(self, q):
         query = QtSql.QSqlQuery(self.db)
+        mesg={'from':self.getName(),
+                  'to':'GestMag_GUI',
+                  'command':'DBMSG'}
         if query.exec(q):
+            t=query.lastError().text()
+            mesg['msg']=t
+            self.publish(self.mqttConf['main2gui'], mesg)
             return query
         else:
             t=query.lastError().text()
+            mesg['msg']=t
             self.dbError(t)
-            mesg={'from':self.getName(),
-                  'to':'GestMag_GUI',
-                  'command':'DBMSG',
-                  'msg':str(t)}
             self.publish(self.mqttConf['main2gui'], mesg)
             return False
         pass
@@ -84,6 +88,17 @@ class DB_Com(GestMag_Thread):
                 pass
             elif command=='DELBLK':
                 pass
+            elif command=='ADDCELL':
+                self.addCell(msg['prop'])
+                self.updCells()
+                pass
+            elif command=='DELCELL':
+                pass
+            elif command=='GETCELL':
+                pass
+            elif command=='UPDCELL':
+                self.updCells()
+                pass    
             else:
                 self.log.error("Unrecognised Command, ignoring..")
                 pass
@@ -91,7 +106,8 @@ class DB_Com(GestMag_Thread):
     #################### MQTT_FUNC ########################
     
     def addMaterial(self, matProp):
-        q='INSERT INTO Material (materialID, density, lift, color, restTime) VALUES (\'{matID}\', \'{density}\', \'{lift}\', \'{color}\', \'{restTime}\')'
+        q='INSERT INTO Material (materialID, density, lift, color, restTime)\
+            VALUES (\'{matID}\', \'{density}\', \'{lift}\', \'{color}\', \'{restTime}\')'
         q=q.format(**matProp)
         rc=self.dbQuery(q)
         self.log.debug(rc)
@@ -105,12 +121,14 @@ class DB_Com(GestMag_Thread):
         if matID is None:
             matID='%'
         query=self.dbQuery(q.format(pr=prop,id=matID))
-        return self.query2dict(query)
+        if query is not False:
+            return self.query2dict(query)
+        pass
     
+    #TODO rifare la funzione!!!!
     def delMaterial(self, matID=None):
         query = QtSql.QSqlQuery()
         q="DELETE FROM Material WHERE MaterialID LIKE '{id}'"
-        
         if matID is not None:
             q.format(id=matID)
             return query.exec(q)
@@ -120,7 +138,7 @@ class DB_Com(GestMag_Thread):
     
     def addBlock(self,blkProp):
         q='INSERT INTO Blocks (blockID, blockMaterial, blockProductionDate, blockWidth, blockHeight, blockDepth) \
-        VALUES (\'{blockID}\', \'{matID}\', \'{date}\', \'{width}\', \'{height}\', \'{length}\')'
+            VALUES (\'{blockID}\', \'{matID}\', \'{date}\', \'{width}\', \'{height}\', \'{length}\')'
         q=q.format(**blkProp)
         self.dbQuery(q)
         pass
@@ -132,8 +150,8 @@ class DB_Com(GestMag_Thread):
             blockID='%'
             pass
         query=self.dbQuery(q.format(id=blockID))
-        return self.query2dict(query)
-        
+        if query is not False:
+            return self.query2dict(query)
         pass
     
     def delBlock(self):
@@ -148,6 +166,43 @@ class DB_Com(GestMag_Thread):
     def delRecipe(self):
         pass
     
+    def addCell(self,cellProp):
+        q='SELECT COUNT(cellID) FROM Cell'
+        query=self.dbQuery(q)
+        if query is not False:
+            resp=self.query2dict(query) #check if dimensions are changed
+            if resp[0]['COUNT(cellID)'] is not cellProp['x']*cellProp['y']:
+                self.log.info('Recreating CELL Database')
+                q='DELETE FROM Cell'
+                query=self.dbQuery(q) #if are changed, delete all cells, for simplicity
+                if query is not False:
+                    for x in range(cellProp['x']): #recreate cells with new uuids
+                        for y in range(cellProp['y']):
+                            q='INSERT INTO Cell (cellID, cellX, cellY)\
+                            VALUES (\'{cellID}\', \'{xx}\', \'{yy}\')'
+                            q=q.format(cellID=uuid.uuid4().hex,xx=x,yy=y)
+                            rc=self.dbQuery(q)
+                            self.log.debug(rc.lastError().text())
+                            pass
+                        pass
+                    pass
+                pass
+            pass
+        pass
+    
+    def getCell(self):
+        q="SELECT * FROM Cell"
+        query=self.dbQuery(q)
+        if query is not False:
+            return self.query2dict(query)
+        pass
+    
+    def delCell(self, matID=None, x=None, y=None):
+        q='DELETE FROM Cell'
+        self.dbQuery(q)
+        pass
+    
+    #update memory from database
     def updMaterials(self):
         matList=self.getMaterial()
         mesg={'from':self.getName(),
@@ -166,6 +221,15 @@ class DB_Com(GestMag_Thread):
         self.publish(self.mqttConf['db2main'], mesg)
         pass
     
+    def updCells(self):
+        cellList=self.getCell()
+        mesg={'from':self.getName(),
+              'to':'GestMag_MAIN',
+              'command': 'CELLLIST',
+              'cells': cellList}
+        self.publish(self.mqttConf['db2main'], mesg)
+        pass
+    
     def query2dict(self, query): # converts the results of a query into a list of key value dictionary
         record=query.record()
         resp=[]
@@ -181,7 +245,7 @@ class DB_Com(GestMag_Thread):
         self.log.info(str(resp))
         return resp
     
-
+    
     #######################################################
     #################### MAIN_LOOP ########################
     #######################################################    

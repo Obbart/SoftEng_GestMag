@@ -17,6 +17,13 @@
 		"width": 0,
 		"height": 0,
 		"length": 0,
-		"date":0
+		"date": 0
+	},
+	"cell": {
+		"cellID": "",
+		"blockID": "",
+		"cellStatus": 0,
+		"cellX": 0,
+		"cellY": 0
 	}
 }
