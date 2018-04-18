@@ -7,9 +7,15 @@ import time, json, uuid
 from copy import deepcopy
 from GUI.GestMagUI import Ui_GestMag_WINDOW
 from MODULES.GestMag_Threads import GestMag_Thread
-from PyQt5.QtWidgets import QMainWindow
-    
+from PyQt5.QtWidgets import *
+import PyQt5
+from PyQt5.QtCore import pyqtSignal
+from PyQt5 import Qt
+
+
 class GestMag_GuInterface(QMainWindow):
+    signal=pyqtSignal()
+    
     def __init__(self, conf, mqttconf):
         # setup user interface
         QMainWindow.__init__(self)
@@ -27,6 +33,14 @@ class GestMag_GuInterface(QMainWindow):
         self.ui.btn_addBlock.clicked.connect(self.on_addBlock)
         self.ui.btn_addMaterial.clicked.connect(self.on_addMaterial)
         self.ui.btn_createStorage.clicked.connect(self.on_createStorage)
+        
+        #interface update parameters and functions
+        self.blkList=[]
+        self.cellList=[]
+        self.xmax=0
+        self.ymax=0
+        self.last=''
+        self.signal.connect(self.upd)
         
         # load defaults dictionaries
         try:
@@ -51,8 +65,31 @@ class GestMag_GuInterface(QMainWindow):
                     matNames.append(m['materialID'])
                 self.ui.cmb_matID.addItems(matNames)
                 pass
+            elif mesg['command'] == 'BLKLIST':
+                self.blkList=deepcopy(mesg['blocks'])
+                self.last=mesg['command']
+                self.signal.emit()
+                pass
+            elif mesg['command'] == 'CELLLIST':
+                self.cellList=deepcopy(mesg['cells'])
+                self.xmax=max(self.cellList, key=lambda f: f['cellX'])['cellX']
+                self.ymax=max(self.cellList, key=lambda f: f['cellY'])['cellY']
+                self.ui.tbl_storage.setRowCount(self.xmax)
+                self.ui.tbl_storage.setColumnCount(self.ymax)
+                '''
+                tutto cio' che riguarda la visualizzazione dovrebbe essere gestito 
+                nella funzione chiamata quando si emette il segnale per evitare problemi
+                nel thread chiamante
+                '''
+                self.last=mesg['command']
+                self.signal.emit()
+                pass
             elif mesg['command'] == 'DBMSG':
                 self.ui.statusbar.showMessage(mesg['msg'])
+                pass
+            else:
+                self.common.log.error('Unrecognized, ignoring...')
+                pass
             pass
         pass
     
@@ -101,4 +138,54 @@ class GestMag_GuInterface(QMainWindow):
         return uid
         pass
     
+    def getBlockID(self, x,y):    
+        for i in self.cellList: 
+            if i['cellX']==x and i['cellY']==y: 
+                print
+                return i['blockID']
+        
+    
+    def upd(self):
+        if self.last=='CELLLIST':
+            for x in range(self.xmax):
+                for y in range(self.ymax):
+                    itm=visitem(self, blockID=self.getBlockID(x,y))
+                    self.ui.tbl_storage.setCellWidget(x,y,itm)
+                    pass
+                pass
+            self.ui.tbl_storage.resizeColumnsToContents()
+            self.ui.tbl_storage.resizeRowsToContents()
+            pass
+        elif self.last=='BLKLIST':
+            for x in range(self.xmax):
+                for y in range(self.ymax):
+                    itm=self.ui.tbl_storage.cellWidget(x,y)
+                    for bb in self.blkList:
+                        if bb['blockID']==itm.blockID:
+                            itm.lbl_status.setText(bb['blockMaterial']+'\n'+bb['blockID'])
+            pass
+        else:
+            self.common.log.error('Unrecognized, ignoring...')
+        self.last=''
+        pass
+    
+    
+class visitem(PyQt5.QtWidgets.QWidget):
+    def __init__(self,parent, blockID):
+        super(visitem, self).__init__(parent)
+        self.setParent(parent)
+        self.lyt=QVBoxLayout()
+        self.lbl_status=QLabel()
+        self.lbl_status.setAlignment(PyQt5.QtCore.Qt.AlignCenter)
+        self.lbl_status.setText('')
+        self.btn_show=QPushButton()
+        self.btn_show.setText('ShowProp')
+        self.lyt.addWidget(self.lbl_status)
+        self.lyt.addWidget(self.btn_show)
+        self.setLayout(self.lyt)
+        self.blockID=blockID
+    pass
+    
+        
+        
     

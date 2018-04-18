@@ -34,9 +34,6 @@ class DB_Com(GestMag_Thread):
                   'to':'GestMag_GUI',
                   'command':'DBMSG'}
         if query.exec(q):
-            t=query.lastError().text()
-            mesg['msg']=t
-            self.publish(self.mqttConf['main2gui'], mesg)
             return query
         else:
             t=query.lastError().text()
@@ -115,7 +112,8 @@ class DB_Com(GestMag_Thread):
     
     def getMaterial(self, matID=None, prop=None): 
         #returns a property from a material id or a list of materials with all properties
-        q="SELECT {pr} FROM Material WHERE MaterialID LIKE '{id}'"
+        q="SELECT {pr} FROM Material WHERE MaterialID LIKE '{id}'\
+            ORDER BY MaterialID ASC"
         if prop is None:
             prop='*'
         if matID is None:
@@ -123,6 +121,8 @@ class DB_Com(GestMag_Thread):
         query=self.dbQuery(q.format(pr=prop,id=matID))
         if query is not False:
             return self.query2dict(query)
+        else:
+            return {}
         pass
     
     #TODO rifare la funzione!!!!
@@ -145,7 +145,8 @@ class DB_Com(GestMag_Thread):
     
     def getBlock(self, blockID=None):
         #returns a block or a list of blocks with all properties
-        q="SELECT * FROM Blocks WHERE blockID LIKE '{id}'"
+        q="SELECT * FROM Blocks WHERE blockID LIKE '{id}'\
+            ORDER BY blockMaterial ASC"
         if blockID is None:
             blockID='%'
             pass
@@ -191,7 +192,8 @@ class DB_Com(GestMag_Thread):
         pass
     
     def getCell(self):
-        q="SELECT * FROM Cell"
+        q="SELECT * FROM Cell\
+            ORDER BY cellY,cellX ASC"
         query=self.dbQuery(q)
         if query is not False:
             return self.query2dict(query)

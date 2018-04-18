@@ -100,14 +100,14 @@ class GestMag_Main(GestMag_Thread):
         return
     
     def initialUpdate(self):
-        comlist=['UPDMAT','UPDBLK','UPDCELL']
+        comlist=['UPDCELL','UPDMAT','UPDBLK']
         for c in comlist:
             mesg={'from':self.getName(),
               'to':'GestMag_DB',
               'command':c}
             self.publish(self.mqttConf['main2db'], mesg)
             self.log.info('Initial Update of: {}'.format(c))
-            time.sleep(2)
+            time.sleep(0.5)
         pass
     
     

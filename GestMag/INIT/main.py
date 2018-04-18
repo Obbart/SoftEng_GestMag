@@ -16,8 +16,9 @@ Created on 28 feb 2018
                           Defined basic structure for commands between modules
                           Addes file for default dictionaries
                           TODO: string cleaning to avoid SQL injection
-2018-05-12    Emanuele    Added more logic to interact with database:
+2018-04-12    Emanuele    Added more logic to interact with database:
                             add cells, delete cells, get cells
+2018-04-18    Emanuele    Added visualization of storage, partially working
 '''
 
 import json
@@ -204,7 +205,7 @@ while isRunning == True: # init cares only to maintain threads alive
     if int(time.time()) - last > c['mqtt']['pollPeriod']:  
         last=int(time.time())  
         sendPoll()
-        checkThreads()
+        #checkThreads()
     app.processEvents()
     time.sleep(0.05)
 
