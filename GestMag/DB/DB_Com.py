@@ -12,6 +12,12 @@ from PyQt5 import QtSql
 import PyQt5
 import uuid
 
+'''
+ogni richiesta riceve come parametro solo il materiale perche' 
+l'intera ottimizzazione di allocazione viene effettuata in base solamente al tipo di materiale
+vengono quindi considerati ti inferiore importanza gli altri parametri
+'''
+
 class DB_Com(GestMag_Thread):
 
     def __init__(self,conf,mqttconf):
@@ -54,13 +60,11 @@ class DB_Com(GestMag_Thread):
         msg=json.loads(msg.payload)
         if msg['to'] == self.name:
             command=msg['command']
-            if command=='ADDMAT':
+            if   command=='ADDMAT':
                 self.addMaterial(msg['prop'])
                 self.updMaterials() #send a updated material list to main 
             elif command=='UPDMAT':
                 self.updMaterials() #send a updated material list to main
-            elif command=='DELMAT':
-                pass
             elif command=='GETMAT':
                 matList=self.getMaterial(matID=msg['matID'], prop=msg['prop'])
                 mesg={'from':self.getName(),
@@ -69,6 +73,12 @@ class DB_Com(GestMag_Thread):
                       'matlist': matList}
                 self.publish(self.mqttConf['db2main'], mesg)
                 pass
+            elif command=='SETMAT':
+                pass
+            elif command=='DELMAT':
+                self.delMaterial(msg['prop'])
+                self.updMaterials()
+                pass
             elif command=='ADDBLK':
                 self.addBlock(msg['prop'])
                 self.updBlocks() #send an updated block list to main
@@ -76,43 +86,71 @@ class DB_Com(GestMag_Thread):
             elif command=='UPDBLK':
                 self.updBlocks() #send an updated block list to main
             elif command=='GETBLK':
-                blkList=self.getBlock(blockID=msg['blkID'])
+                blkList=self.getBlock(matID=msg['matID'])
                 mesg={'from':self.getName(),
                       'to':'GestMag_MAIN',
                       'command': 'GETBLK_RESP',
                       'blklist': blkList}
                 self.publish(self.mqttConf['db2main'], mesg)
                 pass
+            elif command=='SETBLK':
+                pass
             elif command=='DELBLK':
+                self.delBlock(msg['prop'])
+                self.updBlocks()
+                pass
+            elif command=='ADDRCP':
+                self.addRecipe(msg['prop'])
+                self.updRecipes()
+                pass
+            elif command=='UPDRCP':
+                self.updRecipes()
+                pass
+            elif command=='GETRCP':
+                pass
+            elif command=='SETRCP':
+                pass
+            
+            elif command=='DELRCP':
+                self.delRecipe(msg['prop'])
+                self.updRecipes()
                 pass
             elif command=='ADDCELL':
                 self.addCell(msg['prop'])
                 self.updCells()
                 pass
-            elif command=='DELCELL':
+            elif command=='UPDCELL':
+                self.updCells()
                 pass
             elif command=='GETCELL':
                 pass
-            elif command=='UPDCELL':
-                self.updCells()
-                pass    
+            elif command=='SETCELL':
+                pass
             else:
                 self.log.error("Unrecognised Command, ignoring..")
                 pass
         pass
     #################### MQTT_FUNC ########################
     
+    ##### MATERIALS #####
     def addMaterial(self, matProp):
-        q='INSERT INTO Material (materialID, density, lift, color, restTime)\
+        q='INSERT INTO Materials (materialID, density, lift, color, restTime)\
             VALUES (\'{matID}\', \'{density}\', \'{lift}\', \'{color}\', \'{restTime}\')'
         q=q.format(**matProp)
         rc=self.dbQuery(q)
         self.log.debug(rc)
         return rc
-    
+    def updMaterials(self):
+        matList=self.getMaterial()
+        mesg={'from':self.getName(),
+              'to':'GestMag_MAIN',
+              'command': 'MATLIST',
+              'materials': matList}
+        self.publish(self.mqttConf['db2main'], mesg)
+        pass
     def getMaterial(self, matID=None, prop=None): 
         #returns a property from a material id or a list of materials with all properties
-        q="SELECT {pr} FROM Material WHERE MaterialID LIKE '{id}'\
+        q="SELECT {pr} FROM Materials WHERE materialID LIKE '{id}'\
             ORDER BY MaterialID ASC"
         if prop is None:
             prop='*'
@@ -125,61 +163,98 @@ class DB_Com(GestMag_Thread):
             return {}
         pass
     
-    #TODO rifare la funzione!!!!
+    #TODO rifare la funzione!!!! 
+    def setMaterial(self, matID=None, prop=None):
+        pass
     def delMaterial(self, matID=None):
-        query = QtSql.QSqlQuery()
-        q="DELETE FROM Material WHERE MaterialID LIKE '{id}'"
-        if matID is not None:
-            q.format(id=matID)
-            return query.exec(q)
-        else:
-            return False                    
+        q='DELETE FROM Materials \
+            WHERE materialID = \'{matID}\' '
+        q=q.format(**matID)
+        self.dbQuery(q)
         pass
     
+    ##### BLOCKS #####
     def addBlock(self,blkProp):
-        q='INSERT INTO Blocks (blockID, blockMaterial, blockProductionDate, blockWidth, blockHeight, blockDepth) \
+        q='INSERT INTO Blocks (blockID, materialID, blockProductionDate, blockWidth, blockHeight, blockDepth) \
             VALUES (\'{blockID}\', \'{matID}\', \'{date}\', \'{width}\', \'{height}\', \'{length}\')'
         q=q.format(**blkProp)
         self.dbQuery(q)
         pass
-    
-    def getBlock(self, blockID=None):
+    def updBlocks(self):
+        blkList=self.getBlock()
+        mesg={'from':self.getName(),
+              'to':'GestMag_MAIN',
+              'command': 'BLKLIST',
+              'blocks': blkList}
+        self.publish(self.mqttConf['db2main'], mesg)
+        pass
+    def getBlock(self, matID=None):
         #returns a block or a list of blocks with all properties
-        q="SELECT * FROM Blocks WHERE blockID LIKE '{id}'\
-            ORDER BY blockMaterial ASC"
-        if blockID is None:
-            blockID='%'
+        q="SELECT * FROM Blocks WHERE materialID LIKE '{id}'\
+            ORDER BY materialID ASC"
+        if matID is None:
+            matID='%'
             pass
-        query=self.dbQuery(q.format(id=blockID))
+        query=self.dbQuery(q.format(id=matID))
         if query is not False:
             return self.query2dict(query)
         pass
-    
-    def delBlock(self):
+    def setBlock(self, blockID, prop):
+        pass
+    def delBlock(self, blockID=None):
+        q='DELETE FROM Blocks \
+            WHERE blockID = \'{blockID}\' '
+        q=q.format(**blockID)
+        self.dbQuery(q)
         pass
     
-    def addRecipe(self):
+    ##### RECIPES #####
+    def addRecipe(self, rcpProp):
+        q='INSERT INTO Recipes(recipeID, materialID, nVertCut, spVertCut, nOrCut, spOrCut, progSagom)\
+            VALUES (\'{rcpID}\', \'{matID}\', \'{ncv}\', \'{scv}\',\'{nco}\', \'{sco}\',\'{prg}\')'
+        q=q.format(**rcpProp)
+        self.dbQuery(q)
+        pass
+    def updRecipes(self):
+        rcpList=self.getRecipe()
+        mesg={'from':self.getName(),
+              'to':'GestMag_MAIN',
+              'command': 'RCPLIST',
+              'recipes': rcpList}
+        self.publish(self.mqttConf['db2main'], mesg)
+        pass
+    def getRecipe(self, matID=None):
+        q='SELECT * FROM Recipes WHERE materialID LIKE \'{id}\' '
+        if matID is None:
+            matID='%'
+            pass
+        query=self.dbQuery(q.format(id=matID))
+        if query is not False:
+            return self.query2dict(query)
+        pass
+    def setRecipe(self):
+        pass
+    def delRecipe(self,recID=None):
+        q='DELETE FROM Recipes \
+            WHERE recipeID = \'{recipeID}\' '
+        q=q.format(**recID)
+        self.dbQuery(q)
         pass
     
-    def getRecipe(self):
-        pass
-    
-    def delRecipe(self):
-        pass
-    
+    ##### CELLS #####
     def addCell(self,cellProp):
-        q='SELECT COUNT(cellID) FROM Cell'
+        q='SELECT COUNT(cellID) FROM Cells'
         query=self.dbQuery(q)
         if query is not False:
             resp=self.query2dict(query) #check if dimensions are changed
             if resp[0]['COUNT(cellID)'] is not cellProp['x']*cellProp['y']:
                 self.log.info('Recreating CELL Database')
-                q='DELETE FROM Cell'
+                q='DELETE FROM Cells'
                 query=self.dbQuery(q) #if are changed, delete all cells, for simplicity
                 if query is not False:
                     for x in range(cellProp['x']): #recreate cells with new uuids
                         for y in range(cellProp['y']):
-                            q='INSERT INTO Cell (cellID, cellX, cellY)\
+                            q='INSERT INTO Cells (cellID, cellX, cellY)\
                             VALUES (\'{cellID}\', \'{xx}\', \'{yy}\')'
                             q=q.format(cellID=uuid.uuid4().hex,xx=x,yy=y)
                             rc=self.dbQuery(q)
@@ -190,39 +265,6 @@ class DB_Com(GestMag_Thread):
                 pass
             pass
         pass
-    
-    def getCell(self):
-        q="SELECT * FROM Cell\
-            ORDER BY cellY,cellX ASC"
-        query=self.dbQuery(q)
-        if query is not False:
-            return self.query2dict(query)
-        pass
-    
-    def delCell(self, matID=None, x=None, y=None):
-        q='DELETE FROM Cell'
-        self.dbQuery(q)
-        pass
-    
-    #update memory from database
-    def updMaterials(self):
-        matList=self.getMaterial()
-        mesg={'from':self.getName(),
-              'to':'GestMag_MAIN',
-              'command': 'MATLIST',
-              'materials': matList}
-        self.publish(self.mqttConf['db2main'], mesg)
-        pass
-    
-    def updBlocks(self):
-        blkList=self.getBlock()
-        mesg={'from':self.getName(),
-              'to':'GestMag_MAIN',
-              'command': 'BLKLIST',
-              'blocks': blkList}
-        self.publish(self.mqttConf['db2main'], mesg)
-        pass
-    
     def updCells(self):
         cellList=self.getCell()
         mesg={'from':self.getName(),
@@ -231,7 +273,54 @@ class DB_Com(GestMag_Thread):
               'cells': cellList}
         self.publish(self.mqttConf['db2main'], mesg)
         pass
+    def getCell(self):
+        q="SELECT * FROM Cells\
+            ORDER BY cellY,cellX ASC"
+        query=self.dbQuery(q)
+        if query is not False:
+            return self.query2dict(query)
+        pass
+    def setCell(self):
+        pass
+    def delCell(self, matID=None, x=None, y=None):
+        q='DELETE FROM Cells'
+        self.dbQuery(q)
+        pass
     
+    ##### ORDERS #####
+    def addOrder(self, rcpProp):
+        q='INSERT INTO Orders (recipeID, materialID, nVertCut, spVertCut, nOrCut, spOrCut, progSagom)\
+            VALUES (\'{rcpID}\', \'{matID}\', \'{ncv}\', \'{scv}\',\'{nco}\', \'{sco}\',\'{prg}\')'
+        q=q.format(**rcpProp)
+        self.dbQuery(q)
+        pass
+    def updOrder(self):
+        rcpList=self.getRecipe()
+        mesg={'from':self.getName(),
+              'to':'GestMag_MAIN',
+              'command': 'RCPLIST',
+              'recipes': rcpList}
+        self.publish(self.mqttConf['db2main'], mesg)
+        pass
+    def getOrder(self, ordID=None):
+        q='SELECT * FROM Orders WHERE orderID = \'{id}\' '
+        if ordID is None:
+            ordID='%'
+            pass
+        query=self.dbQuery(q.format(id=ordID))
+        if query is not False:
+            return self.query2dict(query)
+        pass
+    def setOrder(self):
+        pass
+    def delOrder(self,ordID=None):
+        q='DELETE FROM Orders \
+            WHERE orderID = \'{orderID}\' '
+        q=q.format(**ordID)
+        self.dbQuery(q)
+        pass
+    
+    ##### MISCELLANEOUS #####
     def query2dict(self, query): # converts the results of a query into a list of key value dictionary
         record=query.record()
         resp=[]
@@ -245,12 +334,8 @@ class DB_Com(GestMag_Thread):
             resp.append(copy.deepcopy(m))
             m.clear()
         self.log.info(str(resp))
-        return resp
-    
-    
-    #######################################################
-    #################### MAIN_LOOP ########################
-    #######################################################    
+        return resp   
+ 
     def run(self):
         self.connectMqtt(self.subList) 
         self.client.message_callback_add(self.subList[0], self.on_mainMessage)

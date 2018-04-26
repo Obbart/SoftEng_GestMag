@@ -10,7 +10,6 @@ from MODULES.GestMag_Threads import GestMag_Thread
 from PyQt5.QtWidgets import *
 import PyQt5
 from PyQt5.QtCore import pyqtSignal
-from PyQt5 import Qt
 
 
 class GestMag_GuInterface(QMainWindow):
@@ -31,12 +30,17 @@ class GestMag_GuInterface(QMainWindow):
         # connect button and actions
         self.ui.btn_genID.clicked.connect(self.on_genID)
         self.ui.btn_addBlock.clicked.connect(self.on_addBlock)
+        self.ui.btn_delBlock.clicked.connect(self.on_delBlock)
         self.ui.btn_addMaterial.clicked.connect(self.on_addMaterial)
+        self.ui.btn_delMaterial.clicked.connect(self.on_delMaterial)
+        self.ui.btn_addRecipe.clicked.connect(self.on_addRecipe)
+        self.ui.btn_delRecipe.clicked.connect(self.on_delRecipe)
         self.ui.btn_createStorage.clicked.connect(self.on_createStorage)
         
         #interface update parameters and functions
         self.blkList=[]
         self.cellList=[]
+        self.rcpList=[]
         self.xmax=0
         self.ymax=0
         self.last=''
@@ -51,6 +55,9 @@ class GestMag_GuInterface(QMainWindow):
             self.log.error("unable to open defaults file: {}, aborting")
             exit()
         
+        self.mesg=deepcopy(self.d['msg'])
+        self.mesg['from']=self.common.getName()
+        self.mesg['to']='GestMag_MAIN'
         pass
     
     def on_mainMessage(self, client, userdata, msg):
@@ -60,13 +67,18 @@ class GestMag_GuInterface(QMainWindow):
             if mesg['command'] == 'MATLIST': #after adding a material update combo box with list of all materials
                 matList=mesg['materials']
                 self.ui.cmb_matID.clear()   #update the whole combo clearing previous content
-                matNames=[]
-                for m in matList:
-                    matNames.append(m['materialID'])
+                self.ui.cmb_matID2.clear()
+                self.ui.cmb_matID3.clear()
+                matNames=self.dict2list(matList, 'materialID')
                 self.ui.cmb_matID.addItems(matNames)
+                self.ui.cmb_matID2.addItems(matNames)
+                self.ui.cmb_matID3.addItems(matNames)
                 pass
             elif mesg['command'] == 'BLKLIST':
                 self.blkList=deepcopy(mesg['blocks'])
+                self.ui.cmb_blockID.clear()
+                blkNames=self.dict2list(self.blkList, 'blockID')
+                self.ui.cmb_blockID.addItems(blkNames)
                 self.last=mesg['command']
                 self.signal.emit()
                 pass
@@ -84,6 +96,15 @@ class GestMag_GuInterface(QMainWindow):
                 self.last=mesg['command']
                 self.signal.emit()
                 pass
+            elif mesg['command'] == 'RCPLIST':
+                self.rcpList=mesg['recipes']
+                self.ui.cmb_recipeID.clear()
+                self.ui.cmb_recipeID2.clear()
+                rcpList=self.dict2list(self.rcpList, 'recipeID')
+                self.ui.cmb_recipeID.addItems(rcpList)
+                self.ui.cmb_recipeID2.addItems(rcpList)
+                self.last=mesg['command']
+                pass
             elif mesg['command'] == 'DBMSG':
                 self.ui.statusbar.showMessage(mesg['msg'])
                 pass
@@ -95,41 +116,95 @@ class GestMag_GuInterface(QMainWindow):
     
     
     def on_addMaterial(self):
-        mat=deepcopy(self.d['material'])
-        mesg=deepcopy(self.d['msg'])        
+        mat=deepcopy(self.d['material'])  
+        mesg=deepcopy(self.mesg)   
         mat['matID']=str(self.ui.txt_matID.text()).strip()
         mat['lift']=int(self.ui.txt_lift.text())
         mat['density']=int(self.ui.txt_density.text())
         mat['color']=str(self.ui.txt_color.text()).strip()
         mat['restTime']=str(self.ui.tim_restTime.time().toString("HH:mm"))        
-        mesg['from']=self.common.name
-        mesg['to']='GestMag_DB'
         mesg['command']='ADDMAT'
         mesg['prop']=mat      
         self.common.publish(self.common.mqttConf['gui2main'],mesg)
         pass
-     
+    
+    def on_delMaterial(self):
+        mesg=deepcopy(self.mesg)
+        mesg['command']='DELMAT'
+        mesg['prop']={
+            'matID':self.ui.cmb_matID2.currentText()}
+        self.common.publish(self.common.mqttConf['gui2main'],mesg)
+        pass 
+    
     def on_addBlock(self):
         blk=deepcopy(self.d['block'])
-        mesg=deepcopy(self.d['msg'])
+        mesg=deepcopy(self.mesg)
         blk['matID']=str(self.ui.cmb_matID.currentText())
         blk['blockID']=str(self.ui.txt_blockID.text())
         blk['width']=int(self.ui.txt_dimX.text())
         blk['height']=int(self.ui.txt_dimY.text())
         blk['length']=int(self.ui.txt_dimZ.text()) 
         blk['date']=time.strftime('%c')
-        mesg['from']=self.common.getName()
-        mesg['to']='GestMag_DB'
         mesg['command']='ADDBLK'
         mesg['prop']=blk
         self.common.publish(self.common.mqttConf['gui2main'],mesg)
         pass   
     
+    def on_delBlock(self):
+        mesg=deepcopy(self.mesg)
+        mesg['command']='DELBLK'
+        mesg['prop']={
+            'blockID':self.ui.cmb_blockID.currentText()}
+        self.common.publish(self.common.mqttConf['gui2main'],mesg)
+        pass
+    
+    def on_addRecipe(self):
+        rcp=deepcopy(self.d['recipe'])
+        mesg=deepcopy(self.mesg)
+        rcp['rcpID']=str(self.ui.txt_rcpID.text())
+        rcp['matID']=str(self.ui.cmb_matID2.currentText())
+        rcp['ncv']=int(self.ui.txt_nCutVert.text())
+        rcp['nco']=int(self.ui.txt_nCutOriz.text())
+        rcp['scv']=int(self.ui.txt_spCutVert.text())
+        rcp['sco']=int(self.ui.txt_spCutOriz.text())
+        rcp['prg']=str(self.ui.cmb_cncProg.currentText())
+        mesg['command']='ADDRCP'
+        mesg['prop']=rcp
+        self.common.publish(self.common.mqttConf['gui2main'],mesg)
+        pass
+    
+    def on_delRecipe(self):
+        mesg=deepcopy(self.mesg)
+        mesg['command']='DELRCP'
+        mesg['prop']={
+            'recipeID':self.ui.cmb_recipeID.currentText()}
+        self.common.publish(self.common.mqttConf['gui2main'],mesg)
+        pass
+    
+    def on_addOrder(self):
+        ordd=deepcopy(self.d['order'])
+        mesg=deepcopy(self.mesg)
+        ordd['orderID']=str(self.ui.txt_orderID.text())
+        ordd['customer']=str(self.ui.txt_customer.text())
+        ordd['expDate']=str(self.ui.dat_deliveryDate.date().toString("yyyy MMM dd"))
+        ordd['nPieces']=int(self.ui.spn_nPieces.value())
+        ordd['recipeID']=str(self.ui.cmb_recipeID2.currentText())
+        mesg['command']='ADDORD'
+        mesg['prop']=ordd
+        self.common.publish(self.common.mqttConf['gui2main'],mesg)
+        pass
+    
+    def on_delOrder(self):
+        mesg=deepcopy(self.mesg)
+        mesg['command']='DELORD'
+        mesg['prop']={
+            'orderID':self.ui.cmb_orderID.currentText()}
+        self.common.publish(self.common.mqttConf['gui2main'],mesg)
+        pass
+    
     def on_createStorage(self):
-        mesg=deepcopy(self.d['msg'])
-        mesg['from']=self.common.getName()
-        mesg['to']='GestMag_MAIN'
-        mesg['command']='ADDCELLS'
+        mesg=deepcopy(self.mesg)
+        mesg['command']='ADDCELL'
         self.common.publish(self.common.mqttConf['gui2main'],mesg)
     
     def on_genID(self):
@@ -143,7 +218,6 @@ class GestMag_GuInterface(QMainWindow):
             if i['cellX']==x and i['cellY']==y: 
                 print
                 return i['blockID']
-        
     
     def upd(self):
         if self.last=='CELLLIST':
@@ -162,12 +236,18 @@ class GestMag_GuInterface(QMainWindow):
                     itm=self.ui.tbl_storage.cellWidget(x,y)
                     for bb in self.blkList:
                         if bb['blockID']==itm.blockID:
-                            itm.lbl_status.setText(bb['blockMaterial']+'\n'+bb['blockID'])
+                            itm.lbl_status.setText(bb['materialID']+'\n'+bb['blockID'])
             pass
         else:
             self.common.log.error('Unrecognized, ignoring...')
         self.last=''
         pass
+    
+    def dict2list(self,d,k):
+        out=[]
+        for i in d:
+            out.append(i[k])
+        return deepcopy(out)
     
     
 class visitem(PyQt5.QtWidgets.QWidget):

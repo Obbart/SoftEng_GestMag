@@ -25,5 +25,21 @@
 		"cellStatus": 0,
 		"cellX": 0,
 		"cellY": 0
+	},
+	"recipe": {
+		"recipeID": "",
+		"matID": "",
+		"ncv": 0,
+		"nco": 0,
+		"svc": 0,
+		"sco": 0,
+		"prg": ""
+	},
+	"order": {
+		"orderID": "",
+		"customer": "",
+		"expDate": "",
+		"nPieces": 0,
+		"recipeID": ""
 	}
 }

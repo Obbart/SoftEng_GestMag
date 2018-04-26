@@ -6,6 +6,7 @@ Created on 12 mar 2018
 import time, json
 from copy import deepcopy
 from MODULES.GestMag_Threads import GestMag_Thread
+from MODULES.Objects import BLOCK, CELL
 
 
 class GestMag_Main(GestMag_Thread):
@@ -21,24 +22,28 @@ class GestMag_Main(GestMag_Thread):
         self.matList=[]
         self.blkList=[]
         self.cellList=[]
+        self.recipeList=[]
+        self.orderList=[]
         
     def on_dbMessage(self, client, userdata, msg):
         self.log.debug('received: {}'.format(msg.payload))
         mesg=json.loads(msg.payload)
         if mesg['to'] == self.getName():
+            mesg['from']=self.getName()
             if mesg['command'] == 'MATLIST':  #received when a new material is added to the db
                 self.matList=deepcopy(mesg['materials'])    #contains a list of materials and properties
-                mesg['from']=self.getName()
                 mesg['to']='GestMag_GUI'
                 self.publish(self.mqttConf['main2gui'], mesg) #forward the list to the gui to update the visualization
             elif mesg['command'] == 'BLKLIST':
                 self.blkList=deepcopy(mesg['blocks'])
-                mesg['from']=self.getName()
                 mesg['to']='GestMag_GUI'
                 self.publish(self.mqttConf['main2gui'], mesg)
             elif mesg['command'] == 'CELLLIST':
                 self.cellList=deepcopy(mesg['cells'])
-                mesg['from']=self.getName()
+                mesg['to']='GestMag_GUI'
+                self.publish(self.mqttConf['main2gui'], mesg)
+            elif mesg['command'] == 'RCPLIST':
+                self.recipeList=deepcopy(mesg['recipes'])
                 mesg['to']='GestMag_GUI'
                 self.publish(self.mqttConf['main2gui'], mesg)
             pass
@@ -54,16 +59,27 @@ class GestMag_Main(GestMag_Thread):
         self.log.debug('received: {}'.format(msg.payload))
         mesg=json.loads(msg.payload)
         if mesg['to'] == self.getName(): 
+            mesg['from']=self.getName()
             # do something with the message
-            if mesg['command'] == 'ADDCELLS':
-                mesg['from']=self.getName()
+            if mesg['command'] == 'ADDCELL':
                 mesg['to']='GestMag_DB'
-                mesg['command']='ADDCELL'
                 mesg['prop']={'x':self.conf['mag']['x'],
                               'y':self.conf['mag']['y']}
                 self.publish(self.mqttConf['main2db'], mesg)
                 pass    
-            pass
+            elif mesg['command'] in ['ADDMAT','DELMAT']:
+                mesg['to']='GestMag_DB'
+                self.publish(self.mqttConf['main2db'], mesg)
+                pass
+            elif mesg['command'] in ['ADDBLK','DELBLK']:
+                mesg['to']='GestMag_DB'
+                self.publish(self.mqttConf['main2db'], mesg)
+                pass
+            elif mesg['command'] in ['ADDRCP','DELRCP']:
+                mesg['to']='GestMag_DB'
+                self.publish(self.mqttConf['main2db'], mesg)
+            else:
+                pass
         elif mesg['to'] == 'GestMag_DB': #publish the message directly to the destination
             self.publish(self.mqttConf['main2db'], mesg)
             pass
@@ -100,7 +116,7 @@ class GestMag_Main(GestMag_Thread):
         return
     
     def initialUpdate(self):
-        comlist=['UPDCELL','UPDMAT','UPDBLK']
+        comlist=['UPDCELL','UPDMAT','UPDBLK','UPDRCP']
         for c in comlist:
             mesg={'from':self.getName(),
               'to':'GestMag_DB',
