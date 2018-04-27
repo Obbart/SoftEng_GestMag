@@ -19,6 +19,9 @@ Created on 28 feb 2018
 2018-04-12    Emanuele    Added more logic to interact with database:
                             add cells, delete cells, get cells
 2018-04-18    Emanuele    Added visualization of storage, partially working
+2018-04-26    Emanuele    Almost completed commands and interface for materials, blocks, recipes, orders
+2018-04-27    Emanuele    Included descriptor classes for blocks,materials,recipes,orders
+                Davide    Included code for PLC_Sim, PLC_Com
 '''
 
 import json
@@ -184,9 +187,6 @@ except:
 #launch other modules as separate threads
 #possible to automate launch procedure? TODO list
 
-if c_ini['start_main']==True:
-    launchMain()
-    pass
 if c_ini['start_db']==True:
     launchDB()
     pass
@@ -197,6 +197,9 @@ if c_ini['start_plc']==True:
     launchPLC()
 if c_ini['start_gui']==True:
     launchUI()
+    pass
+if c_ini['start_main']==True:
+    launchMain()
     pass
 pass
 

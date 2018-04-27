@@ -1,0 +1,71 @@
+import time,json,random
+from MODULES.GestMag_Threads import GestMag_Thread
+from MODULES.GestMag.MODULES.Classes_UML import *
+from INIT.main import RepeatingTimer
+import queue
+
+class PLC_Com(GestMag_Thread):
+
+    def __init__(self,conf,mqttconf):
+        super(PLC_Com,self).__init__(conf,mqttconf)
+        self.subList=[mqttconf['main2plc']]
+        self.bufferqueue=queue.Queue(1)
+        self.buffer=BUFFER(100)
+        self.blockBuffer=BLOCK()
+        self.crane=CRANE()
+        self.cellsim=CELL(200,30,50)
+        pass
+    
+    def on_mainMessage(self, client, userdata, msg):
+        self.log.debug('received: {}'.format(msg.payload))
+        mesg=json.loads(msg.payload)
+        if mesg['command'] == 'MOVEfromA2B':
+            self.move_Block(mesg['prop'['source']], mesg['prop'['dest']])
+            pass
+        pass
+    def new_Block (self,b):
+        mesg={'from':self.getName(),
+               'to':'GestMag_MAIN',
+               'command':'ADDBLK',
+               'prop':''
+               }
+        mesg['prop']=b.getData()
+        self.publish(self.mqttConf['plc2main'], mesg)
+        pass
+    def move_Block(self,s,d):
+        self.crane.setDest(s);
+        time.sleep(random.randrange(1,5,0.5))
+        self.crane.setActPos(s)
+        time.sleep(1)
+        self.crane.loadPiece(self.buffer.blockID_loaded)
+        time.sleep(1)
+        self.buffer.unloadPiece()
+        time.sleep(1)
+        self.crane.setDest(d)
+        time.sleep(random.randrange(1,5,0.5))
+        self.crane.setActPos(d)
+        time.sleep(1)
+        return True
+    
+    #######################################################
+    #################### MAIN_LOOP ########################
+    #######################################################
+    def run(self):
+        self.connectMqtt(self.subList)  
+        self.client.message_callback_add(self.subList[0], self.on_mainMessage)
+         
+        self.log.info("Thread STARTED")
+        
+        
+            
+        while self.isRunning:
+            time.sleep(self.mqttConf['pollPeriod'])
+            self.bufferqueue.put(self.buffer.simNewBlock())
+            if self.bufferqueue.full() :
+                self.new_Block(self.bufferqueue.get())
+                pass
+            pass
+        
+        self.log.info("Thread STOPPED") 
+        
+        pass

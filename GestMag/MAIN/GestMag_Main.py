@@ -3,10 +3,11 @@ Created on 12 mar 2018
 
 @author: Emanuele
 '''
-import time, json
 from copy import deepcopy
+import time, json
+
 from MODULES.GestMag_Threads import GestMag_Thread
-from MODULES.Objects import BLOCK, CELL
+from MODULES.Objects import MATERIAL, BLOCK, CELL, ORDER, RECIPE
 
 
 class GestMag_Main(GestMag_Thread):
@@ -32,6 +33,7 @@ class GestMag_Main(GestMag_Thread):
             mesg['from']=self.getName()
             if mesg['command'] == 'MATLIST':  #received when a new material is added to the db
                 self.matList=deepcopy(mesg['materials'])    #contains a list of materials and properties
+                self.matList=self.createInstance(deepcopy(mesg['materials']), MATERIAL)
                 mesg['to']='GestMag_GUI'
                 self.publish(self.mqttConf['main2gui'], mesg) #forward the list to the gui to update the visualization
             elif mesg['command'] == 'BLKLIST':
@@ -44,6 +46,10 @@ class GestMag_Main(GestMag_Thread):
                 self.publish(self.mqttConf['main2gui'], mesg)
             elif mesg['command'] == 'RCPLIST':
                 self.recipeList=deepcopy(mesg['recipes'])
+                mesg['to']='GestMag_GUI'
+                self.publish(self.mqttConf['main2gui'], mesg)
+            elif mesg['command'] == 'ORDLIST':
+                self.orderListList=deepcopy(mesg['orders'])
                 mesg['to']='GestMag_GUI'
                 self.publish(self.mqttConf['main2gui'], mesg)
             pass
@@ -78,6 +84,9 @@ class GestMag_Main(GestMag_Thread):
             elif mesg['command'] in ['ADDRCP','DELRCP']:
                 mesg['to']='GestMag_DB'
                 self.publish(self.mqttConf['main2db'], mesg)
+            elif mesg['command'] in ['ADDORD','DELORD']:
+                mesg['to']='GestMag_DB'
+                self.publish(self.mqttConf['main2db'], mesg)
             else:
                 pass
         elif mesg['to'] == 'GestMag_DB': #publish the message directly to the destination
@@ -103,8 +112,8 @@ class GestMag_Main(GestMag_Thread):
         self.client.message_callback_add(self.subList[3], self.on_guiMessage)
         
         self.log.info("Thread STARTED")
-        time.sleep(self.mqttConf['pollPeriod'])
         #after starting the thread update information reading the db
+        time.sleep(2)
         self.initialUpdate()
         
         while self.isRunning:
@@ -116,7 +125,7 @@ class GestMag_Main(GestMag_Thread):
         return
     
     def initialUpdate(self):
-        comlist=['UPDCELL','UPDMAT','UPDBLK','UPDRCP']
+        comlist=['UPDCELL','UPDMAT','UPDBLK','UPDRCP','UPDORD']
         for c in comlist:
             mesg={'from':self.getName(),
               'to':'GestMag_DB',
@@ -125,6 +134,12 @@ class GestMag_Main(GestMag_Thread):
             self.log.info('Initial Update of: {}'.format(c))
             time.sleep(0.5)
         pass
+    
+    def createInstance(self, l, c):
+        tmp=[]
+        for i in l:
+            tmp.append(c(prop=i))
+        return tmp
     
     
     

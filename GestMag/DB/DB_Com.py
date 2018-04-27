@@ -2,21 +2,23 @@
 Created on 12 mar 2018
 
 @author: Emanuele
-'''
-import time
-import copy
-import json
-from MODULES.GestMag_Threads import GestMag_Thread
 
-from PyQt5 import QtSql
-import PyQt5
-import uuid
-
-'''
 ogni richiesta riceve come parametro solo il materiale perche' 
 l'intera ottimizzazione di allocazione viene effettuata in base solamente al tipo di materiale
 vengono quindi considerati ti inferiore importanza gli altri parametri
 '''
+
+import copy
+import json
+import time
+import uuid
+import re
+
+from PyQt5 import QtSql
+import PyQt5
+
+from MODULES.GestMag_Threads import GestMag_Thread
+
 
 class DB_Com(GestMag_Thread):
 
@@ -35,6 +37,7 @@ class DB_Com(GestMag_Thread):
     
     #################### DB_FUNC ########################
     def dbQuery(self, q):
+        self.log.info(re.sub(' +', ' ', q))
         query = QtSql.QSqlQuery(self.db)
         mesg={'from':self.getName(),
                   'to':'GestMag_GUI',
@@ -107,10 +110,15 @@ class DB_Com(GestMag_Thread):
                 self.updRecipes()
                 pass
             elif command=='GETRCP':
+                rcpList=self.getRecipe(matID=msg['matID'])
+                mesg={'from':self.getName(),
+                      'to':'GestMag_MAIN',
+                      'command': 'GETRCP_RESP',
+                      'rcplist': rcpList}
+                self.publish(self.mqttConf['db2main'], mesg)
                 pass
             elif command=='SETRCP':
                 pass
-            
             elif command=='DELRCP':
                 self.delRecipe(msg['prop'])
                 self.updRecipes()
@@ -125,6 +133,29 @@ class DB_Com(GestMag_Thread):
             elif command=='GETCELL':
                 pass
             elif command=='SETCELL':
+                self.setCell(msg['prop'])
+                pass
+            elif command=='ADDORD':
+                self.addOrder(msg['prop'])
+                self.updOrder()
+                pass
+            elif command=='UPDORD':
+                self.updOrder()
+                pass
+            elif command=='GETORD':
+                ordList=self.getOrd(ordID=msg['ordID'])
+                mesg={'from':self.getName(),
+                      'to':'GestMag_MAIN',
+                      'command': 'GETORD_RESP',
+                      'ordList': ordList}
+                self.publish(self.mqttConf['db2main'], mesg)
+                pass
+                pass
+            elif command=='SETORD':
+                pass
+            elif command=='DELORD':
+                self.delOrder(msg['prop'])
+                self.updOrder()
                 pass
             else:
                 self.log.error("Unrecognised Command, ignoring..")
@@ -280,30 +311,35 @@ class DB_Com(GestMag_Thread):
         if query is not False:
             return self.query2dict(query)
         pass
-    def setCell(self):
+    def setCell(self,cellProp):
+        q='UPDATE Cells \
+            SET blockID={blockID}, cellStatus={cellStatus} \
+            WHERE cellX={cellX} AND cellY={cellY}'
+        q=q.format(**cellProp)
+        self.dbQuery(q)
         pass
-    def delCell(self, matID=None, x=None, y=None):
+    def delCell(self):
         q='DELETE FROM Cells'
         self.dbQuery(q)
         pass
     
     ##### ORDERS #####
-    def addOrder(self, rcpProp):
-        q='INSERT INTO Orders (recipeID, materialID, nVertCut, spVertCut, nOrCut, spOrCut, progSagom)\
-            VALUES (\'{rcpID}\', \'{matID}\', \'{ncv}\', \'{scv}\',\'{nco}\', \'{sco}\',\'{prg}\')'
-        q=q.format(**rcpProp)
+    def addOrder(self, ordProp):
+        q='INSERT INTO Orders (orderID, customer, expDate, nPieces, recipeID)\
+            VALUES (\'{orderID}\', \'{customer}\', \'{expDate}\', \'{nPieces}\',\'{recipeID}\')'
+        q=q.format(**ordProp)
         self.dbQuery(q)
         pass
     def updOrder(self):
-        rcpList=self.getRecipe()
+        ordList=self.getOrder()
         mesg={'from':self.getName(),
               'to':'GestMag_MAIN',
-              'command': 'RCPLIST',
-              'recipes': rcpList}
+              'command': 'ORDLIST',
+              'orders': ordList}
         self.publish(self.mqttConf['db2main'], mesg)
         pass
     def getOrder(self, ordID=None):
-        q='SELECT * FROM Orders WHERE orderID = \'{id}\' '
+        q='SELECT * FROM Orders WHERE orderID LIKE \'{id}\''
         if ordID is None:
             ordID='%'
             pass
@@ -315,7 +351,7 @@ class DB_Com(GestMag_Thread):
         pass
     def delOrder(self,ordID=None):
         q='DELETE FROM Orders \
-            WHERE orderID = \'{orderID}\' '
+            WHERE orderID LIKE \'{orderID}\' '
         q=q.format(**ordID)
         self.dbQuery(q)
         pass

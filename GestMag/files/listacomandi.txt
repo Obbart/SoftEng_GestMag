@@ -1,0 +1,78 @@
+############## LISTA COMANDI #############
+
+>>>>>> VERSO MODULO DATABASE <<<<<<<<<<<
+....................
+.... Scrittura .....
+....................
+# parte comune a tutti i comandi
+# essendo comandi di scrittura non danno una risposta
+
+{'from':self.getName(),
+'to':'GestMag_DB',
+'command': ****,
+'prop': ****}
+
+'command': 'ADDMAT' #aggiunge un materiale
+'prop': {
+		"matID": 'nomemateriale',
+		"lift": 0,
+		"density": 0,
+		"color": 0,
+		"restTime": 'HH:mm'
+		 }
+
+'command': 'ADDBLK'	#aggiunge un blocco
+'prop': {
+		"matID": 'nomemateriale',
+		"blockID": 0,
+		"width": 0,
+		"height": 0,
+		"length": 0,
+		"date":'Mon Apr  9 12:23:29 2018'
+		 }
+
+'command':'MOVEfromA2B'
+'prop':{
+	'source':0,
+	'dest':0
+	}
+		 
+...................
+..... Lettura .....
+...................
+#ogni comando di lettura genera una risposta scritta sotto al comando
+# --> formato della richiesta
+# <-- formato della risposta
+
+# formato base delle richieste
+{'from':self.getName(),
+'to':'GestMag_DB',
+'command': ****,
+$altra_chiave : $altri_valori #opzionali
+}
+
+# formato base delle risposte
+{'from':'GestMag_DB',
+'to':'GestMag_MAIN',
+'command': ****,
+$altra_chiave$ : $altri_valori$ #contiene le informazioni della risposta
+}
+
+ --> 'command': 'UPDMAT'
+ <-- 'command': 'MATLIST',
+ 		'materals': [{"matID": 'nomemateriale',"lift": 0,"density": 0,
+						"color": 0, "restTime": 'HH:mm'}, {...}, {...}]
+
+ --> 'command': 'UPDBLK'
+ <-- 'command':	'BLKLIST',
+ 		'blocks': [{ "matID": 'nomemateriale', "blockID": 0,
+					"width": 0, "height": 0, "length": 0,
+					"date":'Mon Apr  9 12:23:29 2018'}, {...}, {...}]
+
+'command': 'GETMAT'
+
+'command': 'GETBLK'
+
+'command': 'DELMAT'
+
+'command': 'DELBLK'

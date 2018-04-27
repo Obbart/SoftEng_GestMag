@@ -28,13 +28,16 @@ class GestMag_GuInterface(QMainWindow):
         self.common.client.message_callback_add(mqttconf['main2gui'], self.on_mainMessage)
         
         # connect button and actions
-        self.ui.btn_genID.clicked.connect(self.on_genID)
+        self.ui.btn_genID.clicked.connect(lambda: self.on_genID(self.ui.txt_blockID))
+        self.ui.btn_genID2.clicked.connect(lambda: self.on_genID(self.ui.txt_orderID))
         self.ui.btn_addBlock.clicked.connect(self.on_addBlock)
         self.ui.btn_delBlock.clicked.connect(self.on_delBlock)
         self.ui.btn_addMaterial.clicked.connect(self.on_addMaterial)
         self.ui.btn_delMaterial.clicked.connect(self.on_delMaterial)
         self.ui.btn_addRecipe.clicked.connect(self.on_addRecipe)
         self.ui.btn_delRecipe.clicked.connect(self.on_delRecipe)
+        self.ui.btn_addOrder.clicked.connect(self.on_addOrder)
+        self.ui.btn_delOrder.clicked.connect(self.on_delOrder)
         self.ui.btn_createStorage.clicked.connect(self.on_createStorage)
         
         #interface update parameters and functions
@@ -103,6 +106,13 @@ class GestMag_GuInterface(QMainWindow):
                 rcpList=self.dict2list(self.rcpList, 'recipeID')
                 self.ui.cmb_recipeID.addItems(rcpList)
                 self.ui.cmb_recipeID2.addItems(rcpList)
+                self.last=mesg['command']
+                pass
+            elif mesg['command'] == 'ORDLIST':
+                self.ordList=mesg['orders']
+                self.ui.cmb_orderID.clear()
+                ordList=self.dict2list(self.ordList, 'orderID')
+                self.ui.cmb_orderID.addItems(ordList)
                 self.last=mesg['command']
                 pass
             elif mesg['command'] == 'DBMSG':
@@ -207,9 +217,9 @@ class GestMag_GuInterface(QMainWindow):
         mesg['command']='ADDCELL'
         self.common.publish(self.common.mqttConf['gui2main'],mesg)
     
-    def on_genID(self):
+    def on_genID(self,t):
         uid=uuid.uuid4().hex
-        self.ui.txt_blockID.setText(uid)
+        t.setText(uid)
         return uid
         pass
     
