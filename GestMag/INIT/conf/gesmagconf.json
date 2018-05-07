@@ -1,5 +1,5 @@
 {
-	"version": 0.07,
+	"version": 0.08,
 	"log_level": "INFO",
 	"mqtt": {
 		"addr": "localhost",
@@ -42,10 +42,40 @@
 		}
 	},
 	"plc": {
-		"modName": "GestMag_PLC"
+		"modName": "GestMag_PLC",
+		"buffer": {
+			"addr": 0
+		}
 	},
 	"cnc": {
-		"modName": "GestMag_CNC"
+		"modName": "GestMag_CNC",
+		"machines": [
+			{
+				"name": "VCUT1",
+				"addr": 0,
+				"type": 0
+			},
+			{
+				"name": "OCUT1",
+				"addr": 2,
+				"type": 1
+			},
+			{
+				"name": "2.5D",
+				"addr": 5,
+				"type": 2
+			},
+			{
+				"name": "OCUT2",
+				"addr": 7,
+				"type": 1
+			},
+			{
+				"name": "VCUT2",
+				"addr": 9,
+				"type": 0
+			}
+		]
 	},
 	"gui": {
 		"modName": "GestMag_GUI"

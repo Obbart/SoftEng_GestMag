@@ -16,8 +16,7 @@ status_CELL={"free":0,"busy":1}
 
 
 class PLC_Sim(object):
-   
-    def __init__(self, params):
+    def __init__(self):
         self.status=status_PLC["free"]
         self.blockID_loaded=""
         pass
@@ -32,26 +31,17 @@ class PLC_Sim(object):
         self.blockID_loaded=""
         self.status=status_PLC["free"]
         pass
-    def simNewBlock(self):
-        mat='ELAST 65'
-        w=random.randrange(10, 20, 1)
-        h=random.randrange(10, 20, 1)
-        l=random.randrange(10, 20, 1)
-        blk=BLOCK(mat,w,h,l)
-        self.loadPiece(blk.blockID)
-        return blk
 
 class CRANE(PLC_Sim):
-    def __init__(self,params):
-        self.act_Pos=0
-        self.dest=0
+    def __init__(self,s=2):
+        self.act_Pos=[0,0]
+        self.dest=[0,0]
         self.range=0
+        self.speed=s
         pass
-    
     def setDest(self,d):
         self.dest=d
         pass
-    
     def setActPos(self,p):
         self.act_Pos=p
         pass
@@ -60,13 +50,25 @@ class CRANE(PLC_Sim):
     def setRange(self,r):
         self.range=r
         pass
+    def calcTime(self,d):
+        s=self.getPos()
+        return ((s[0]-d[0])**2 +(s[1]-d[1])**2)/self.speed
     
 class BUFFER(PLC_Sim):
-    
     def __init__(self,addr):
         self.addr=addr
+        self.blockID_loaded=''
         pass
     def setAddr(self,addr):
         self.addr=addr
         pass
+    def simNewBlock(self,l):
+        blkp={
+        "materialID": random.choice(l),
+        "blockWidth": random.randrange(100, 200, 50),
+        "blockHeight": random.randrange(100, 200, 50),
+        "blockLenght": random.randrange(100, 200, 50)}
+        blk=BLOCK(prop=blkp,new=True)
+        self.loadPiece(blk.blockID)
+        return blk
         

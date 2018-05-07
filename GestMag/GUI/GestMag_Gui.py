@@ -8,8 +8,8 @@ from copy import deepcopy
 from GUI.GestMagUI import Ui_GestMag_WINDOW
 from MODULES.GestMag_Threads import GestMag_Thread
 from PyQt5.QtWidgets import *
-import PyQt5
-from PyQt5.QtCore import pyqtSignal
+import PyQt5.QtWidgets
+from PyQt5.QtCore import Qt,pyqtSignal,QDate
 
 
 class GestMag_GuInterface(QMainWindow):
@@ -21,6 +21,7 @@ class GestMag_GuInterface(QMainWindow):
         self.ui=Ui_GestMag_WINDOW()
         self.ui.setupUi(self)
         self.setWindowTitle('GestMag User Interface')
+        self.ui.dat_deliveryDate.setDate(QDate.currentDate())
         
         #instantiate common functions
         self.common=GestMag_Thread(conf, mqttconf)
@@ -115,6 +116,9 @@ class GestMag_GuInterface(QMainWindow):
                 self.ui.cmb_orderID.addItems(ordList)
                 self.last=mesg['command']
                 pass
+            elif mesg['command'] == 'UPDATE':
+                self.signal.emit()
+                pass
             elif mesg['command'] == 'DBMSG':
                 self.ui.statusbar.showMessage(mesg['msg'])
                 pass
@@ -128,7 +132,7 @@ class GestMag_GuInterface(QMainWindow):
     def on_addMaterial(self):
         mat=deepcopy(self.d['material'])  
         mesg=deepcopy(self.mesg)   
-        mat['matID']=str(self.ui.txt_matID.text()).strip()
+        mat['materialID']=str(self.ui.txt_matID.text()).strip()
         mat['lift']=int(self.ui.txt_lift.text())
         mat['density']=int(self.ui.txt_density.text())
         mat['color']=str(self.ui.txt_color.text()).strip()
@@ -149,12 +153,12 @@ class GestMag_GuInterface(QMainWindow):
     def on_addBlock(self):
         blk=deepcopy(self.d['block'])
         mesg=deepcopy(self.mesg)
-        blk['matID']=str(self.ui.cmb_matID.currentText())
+        blk['materialID']=str(self.ui.cmb_matID.currentText())
         blk['blockID']=str(self.ui.txt_blockID.text())
-        blk['width']=int(self.ui.txt_dimX.text())
-        blk['height']=int(self.ui.txt_dimY.text())
-        blk['length']=int(self.ui.txt_dimZ.text()) 
-        blk['date']=time.strftime('%c')
+        blk['blockWidth']=int(self.ui.txt_dimX.text())
+        blk['blockHeight']=int(self.ui.txt_dimY.text())
+        blk['blockLength']=int(self.ui.txt_dimZ.text()) 
+        blk['blockProductionDate']=time.strftime('%c')
         mesg['command']='ADDBLK'
         mesg['prop']=blk
         self.common.publish(self.common.mqttConf['gui2main'],mesg)
@@ -171,13 +175,14 @@ class GestMag_GuInterface(QMainWindow):
     def on_addRecipe(self):
         rcp=deepcopy(self.d['recipe'])
         mesg=deepcopy(self.mesg)
-        rcp['rcpID']=str(self.ui.txt_rcpID.text())
-        rcp['matID']=str(self.ui.cmb_matID2.currentText())
-        rcp['ncv']=int(self.ui.txt_nCutVert.text())
-        rcp['nco']=int(self.ui.txt_nCutOriz.text())
-        rcp['scv']=int(self.ui.txt_spCutVert.text())
-        rcp['sco']=int(self.ui.txt_spCutOriz.text())
-        rcp['prg']=str(self.ui.cmb_cncProg.currentText())
+        rcp['recipeID']=str(self.ui.txt_rcpID.text())
+        rcp['materialID']=str(self.ui.cmb_matID2.currentText())
+        rcp['nVertCut']=int(self.ui.txt_nCutVert.text())
+        rcp['nOrCut']=int(self.ui.txt_nCutOriz.text())
+        rcp['spVertCut']=int(self.ui.txt_spCutVert.text())
+        rcp['spOrCut']=int(self.ui.txt_spCutOriz.text())
+        rcp['progSagom']=str(self.ui.cmb_cncProg.currentText())
+        rcp['execOrder']=str(self.ui.txt_execOrder.text())
         mesg['command']='ADDRCP'
         mesg['prop']=rcp
         self.common.publish(self.common.mqttConf['gui2main'],mesg)
@@ -247,6 +252,8 @@ class GestMag_GuInterface(QMainWindow):
                     for bb in self.blkList:
                         if bb['blockID']==itm.blockID:
                             itm.lbl_status.setText(bb['materialID']+'\n'+bb['blockID'])
+            self.ui.tbl_storage.resizeColumnsToContents()
+            self.ui.tbl_storage.resizeRowsToContents()
             pass
         else:
             self.common.log.error('Unrecognized, ignoring...')
@@ -260,13 +267,13 @@ class GestMag_GuInterface(QMainWindow):
         return deepcopy(out)
     
     
-class visitem(PyQt5.QtWidgets.QWidget):
+class visitem(QWidget):
     def __init__(self,parent, blockID):
         super(visitem, self).__init__(parent)
         self.setParent(parent)
         self.lyt=QVBoxLayout()
         self.lbl_status=QLabel()
-        self.lbl_status.setAlignment(PyQt5.QtCore.Qt.AlignCenter)
+        self.lbl_status.setAlignment(Qt.AlignCenter)
         self.lbl_status.setText('')
         self.btn_show=QPushButton()
         self.btn_show.setText('ShowProp')

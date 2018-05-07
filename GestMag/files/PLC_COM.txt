@@ -55,9 +55,7 @@ class PLC_Com(GestMag_Thread):
         self.client.message_callback_add(self.subList[0], self.on_mainMessage)
          
         self.log.info("Thread STARTED")
-        
-        
-            
+             
         while self.isRunning:
             time.sleep(self.mqttConf['pollPeriod'])
             self.bufferqueue.put(self.buffer.simNewBlock())

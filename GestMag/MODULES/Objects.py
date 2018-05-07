@@ -27,17 +27,17 @@ class MATERIAL():
 
 class BLOCK():
     def __init__(self, prop, new=False):
-        self.width = prop['width']
-        self.height = prop['height']
-        self.length = prop['length']
+        self.width = prop['blockWidth']
+        self.height = prop['blockHeight']
+        self.length = prop['blockLenght']
+        self.material = prop['materialID']
         if not new:
             self.blockID = prop['blockID']
-            self.date = time.mktime(time.strptime(prop['date'], '%c'))
+            self.date = time.strptime(prop['blockProductionDate'], '%c')
         else:
             self.blockID = uuid.uuid4().hex
-            self.date = time.time()
+            self.date = time.gmtime(time.time())
         self.ready = False
-        self.material=None
         pass    
     def setDimension(self, width, height, length):
         self.width = width
@@ -45,10 +45,17 @@ class BLOCK():
         self.length = length
         pass   
     def setMaterial(self, mat):
-        self.material=mat
+        self.material = mat
         pass   
-    def getMaterial(self):
-        return self.material  
+    def getData(self):
+        return {
+        "materialID": self.material,
+        "blockID": self.blockID,
+        "blockWidth": self.width,
+        "blockHeight": self.height,
+        "blockLenght": self.length,
+        "blockProductionDate": time.strftime('%c',self.date)
+        }  
     def checkReady(self):
         if time.time() - self.date > self.material.restTime:
             self.ready = True
@@ -56,11 +63,11 @@ class BLOCK():
 
 
 class CELL():
-    def __init__(self,prop):
+    def __init__(self, prop):
         self.cellID = prop['cellID']
         self.status = prop['cellStatus']
         self.blockID = prop['blockID']
-        self.addr = (prop['cellX'],prop['cellY'])
+        self.addr = (prop['cellX'], prop['cellY'])
         pass
     def setStatus(self, s):
         self.status = s
@@ -73,6 +80,8 @@ class CELL():
         self.blockID = None
         self.status = status_CELL["free"]
         pass
+    def isEmpty(self):
+        if 
 
     
 class WIP(BLOCK):
@@ -91,34 +100,26 @@ class WIP(BLOCK):
 class RECIPE():
     def __init__(self, prop):
         self.recipeID = prop['recipeID']  # nome ricetta
-        self.matID = prop['matID']  # materiale
-        self.n_ve_cut = prop['ncv']  # numero tagli verticali
-        self.n_or_cut = prop['nco']  # numero tagli orizzontali
-        self.w_ve_cut = prop['scv']  # spessore tagli verticali
-        self.w_or_cut = prop['sc0']  # spessore tagli orizzontali
-        self.sa_prog = prop['prg']  # programma sagomatura
-        self.seq = "DEFAULT"  # sequenza
+        self.matID = prop['materialID']  # materiale
+        self.n_ve_cut = prop['nVertCut']  # numero tagli verticali
+        self.n_or_cut = prop['nOrCut']  # numero tagli orizzontali
+        self.w_ve_cut = prop['spVertCut']  # spessore tagli verticali
+        self.w_or_cut = prop['spOrCut']  # spessore tagli orizzontali
+        self.sa_prog = prop['progSagom']  # programma sagomatura
+        self.seq = prop['execOrder']  # sequenza
         pass
-    def setSequence(self,s):
-        self.seq=s
+    def setSequence(self, s):
+        self.seq = s
         pass
                
 
 class ORDER(object):
-    def __init__(self, params):  # NB one product type per order
-        self.client = ""
-        self.exp_date = time.strftime("%c")
-        self.product = ""
-        self.n_product = 0
-        self.ID_code = ""
+    def __init__(self, prop):  # NB one product type per order
+        self.orderID = prop['orderID']
+        self.expDate = prop['expDate']
+        self.recipeID = prop['recipeID']
         pass
-    def newOrder(self, c, ed, p, np, i):
-        self.client = c
-        self.exp_date = ed
-        self.product = p
-        self.n_product = np
-        self.ID_code = i
-        pass
+    
     def prodMinus1(self):
         self.n_product -= 1
         pass

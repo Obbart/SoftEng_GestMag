@@ -166,7 +166,7 @@ class DB_Com(GestMag_Thread):
     ##### MATERIALS #####
     def addMaterial(self, matProp):
         q='INSERT INTO Materials (materialID, density, lift, color, restTime)\
-            VALUES (\'{matID}\', \'{density}\', \'{lift}\', \'{color}\', \'{restTime}\')'
+            VALUES (\'{materialID}\', \'{density}\', \'{lift}\', \'{color}\', \'{restTime}\')'
         q=q.format(**matProp)
         rc=self.dbQuery(q)
         self.log.debug(rc)
@@ -206,8 +206,8 @@ class DB_Com(GestMag_Thread):
     
     ##### BLOCKS #####
     def addBlock(self,blkProp):
-        q='INSERT INTO Blocks (blockID, materialID, blockProductionDate, blockWidth, blockHeight, blockDepth) \
-            VALUES (\'{blockID}\', \'{matID}\', \'{date}\', \'{width}\', \'{height}\', \'{length}\')'
+        q='INSERT INTO Blocks (blockID, materialID, blockProductionDate, blockWidth, blockHeight, blockLenght) \
+            VALUES (\'{blockID}\', \'{materialID}\', \'{blockProductionDate}\', \'{blockWidth}\', \'{blockHeight}\', \'{blockLenght}\')'
         q=q.format(**blkProp)
         self.dbQuery(q)
         pass
@@ -241,8 +241,8 @@ class DB_Com(GestMag_Thread):
     
     ##### RECIPES #####
     def addRecipe(self, rcpProp):
-        q='INSERT INTO Recipes(recipeID, materialID, nVertCut, spVertCut, nOrCut, spOrCut, progSagom)\
-            VALUES (\'{rcpID}\', \'{matID}\', \'{ncv}\', \'{scv}\',\'{nco}\', \'{sco}\',\'{prg}\')'
+        q='INSERT INTO Recipes(recipeID, materialID, nVertCut, spVertCut, nOrCut, spOrCut, progSagom, execOrder)\
+            VALUES (\'{recipeID}\', \'{materialID}\', \'{nVertCut}\', \'{spVertCut}\',\'{nOrCut}\', \'{spOrCut}\',\'{progSagom}\',\'{execOrder}\')'
         q=q.format(**rcpProp)
         self.dbQuery(q)
         pass
@@ -313,7 +313,7 @@ class DB_Com(GestMag_Thread):
         pass
     def setCell(self,cellProp):
         q='UPDATE Cells \
-            SET blockID={blockID}, cellStatus={cellStatus} \
+            SET blockID=\'{blockID}\', cellStatus=\'{cellStatus}\' \
             WHERE cellX={cellX} AND cellY={cellY}'
         q=q.format(**cellProp)
         self.dbQuery(q)
