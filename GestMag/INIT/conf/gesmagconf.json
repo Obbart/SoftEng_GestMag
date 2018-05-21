@@ -1,5 +1,5 @@
 {
-	"version": 0.08,
+	"version": 0.11,
 	"log_level": "INFO",
 	"mqtt": {
 		"addr": "localhost",
@@ -10,6 +10,7 @@
 		"db2main": "gestmag/db2main",
 		"main2plc": "gestmag/main2plc",
 		"plc2main": "gestmag/plc2main",
+		"plc2gui" : "gestmag/plc2gui",
 		"main2cnc": "gestmag/main2cnc",
 		"cnc2main": "gestmag/cnc2main",
 		"main2gui": "gestmag/main2gui",
@@ -38,7 +39,7 @@
 		"modName": "GestMag_MAIN",
 		"mag": {
 			"x": 10,
-			"y": 10
+			"y": 11
 		}
 	},
 	"plc": {
@@ -49,31 +50,37 @@
 	},
 	"cnc": {
 		"modName": "GestMag_CNC",
+		"minLength":50,
 		"machines": [
 			{
 				"name": "VCUT1",
 				"addr": 0,
-				"type": 0
+				"type": 0,
+				"status": 0
 			},
 			{
 				"name": "OCUT1",
 				"addr": 2,
-				"type": 1
+				"type": 1,
+				"status": 0
 			},
 			{
 				"name": "2.5D",
 				"addr": 5,
-				"type": 2
+				"type": 2,
+				"status": 0
 			},
 			{
 				"name": "OCUT2",
 				"addr": 7,
-				"type": 1
+				"type": 1,
+				"status": 0
 			},
 			{
 				"name": "VCUT2",
 				"addr": 9,
-				"type": 0
+				"type": 0,
+				"status": 0
 			}
 		]
 	},

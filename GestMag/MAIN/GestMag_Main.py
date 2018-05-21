@@ -4,10 +4,10 @@ Created on 12 mar 2018
 @author: Emanuele
 '''
 from copy import deepcopy
-import time, json
+import time, json, math
 
 from MODULES.GestMag_Threads import GestMag_Thread
-from MODULES.Objects import MATERIAL, BLOCK, CELL, ORDER, RECIPE, status_CELL
+from MODULES.Objects import MATERIAL, BLOCK, CELL, ORDER, RECIPE, WIP, status_CELL, type_CNC
 import queue
 
 
@@ -24,6 +24,7 @@ class GestMag_Main(GestMag_Thread):
         # local copy of database to manage allocation of blocks in the storage
         self.matList = []
         self.blkList = []
+        self.wipList = []
         self.cellList = []
         self.recipeList = []
         self.orderList = []
@@ -44,29 +45,34 @@ class GestMag_Main(GestMag_Thread):
         if mesg['to'] == self.getName():
             mesg['from'] = self.getName()
             if mesg['command'] == 'MATLIST':  # received when a new material is added to the db
-                # self.matList=deepcopy(mesg['materials'])    #contains a list of materials and properties
+                                                #contains a list of materials and properties
                 self.matList = self.createInstance(deepcopy(mesg['materials']), MATERIAL)
                 mesg['to'] = 'GestMag_GUI'
                 self.publish(self.mqttConf['main2gui'], mesg)  # forward the list to the gui to update the visualization
                 mesg['to'] = 'GestMag_PLC'
                 self.publish(self.mqttConf['main2plc'], mesg)  # forward the material list to plc module for new block simulation
             elif mesg['command'] == 'BLKLIST':
-                # self.blkList=deepcopy(mesg['blocks'])
                 self.blkList = self.createInstance(deepcopy(mesg['blocks']), BLOCK)
+                self.blkList = self.associateMaterial(self.blkList, self.matList)
+                mesg['to'] = 'GestMag_GUI'
+                self.publish(self.mqttConf['main2gui'], mesg)
+            elif mesg['command'] == 'WIPLIST':
+                self.wipList = self.createInstance(deepcopy(mesg['wips']), WIP)
+                self.wipList = self.associateMaterial(self.wipList, self.matList)
                 mesg['to'] = 'GestMag_GUI'
                 self.publish(self.mqttConf['main2gui'], mesg)
             elif mesg['command'] == 'CELLLIST':
-                # self.cellList=deepcopy(mesg['cells'])
                 self.cellList = self.createInstance(deepcopy(mesg['cells']), CELL)
                 mesg['to'] = 'GestMag_GUI'
                 self.publish(self.mqttConf['main2gui'], mesg)
             elif mesg['command'] == 'RCPLIST':
-                # self.recipeList=deepcopy(mesg['recipes'])
                 self.recipeList = self.createInstance(deepcopy(mesg['recipes']), RECIPE)
+                self.recipeList = self.associateMaterial(self.recipeList, self.matList)
+                for s in self.recipeList:
+                    s.setTimes()
                 mesg['to'] = 'GestMag_GUI'
                 self.publish(self.mqttConf['main2gui'], mesg)
             elif mesg['command'] == 'ORDLIST':
-                # self.orderListList=deepcopy(mesg['orders'])
                 self.orderList = self.createInstance(deepcopy(mesg['orders']), ORDER)
                 mesg['to'] = 'GestMag_GUI'
                 self.publish(self.mqttConf['main2gui'], mesg)
@@ -140,6 +146,8 @@ class GestMag_Main(GestMag_Thread):
         pass
     
     
+    
+    
     #######################################################
     #################### MAIN_LOOP ########################
     #######################################################    
@@ -154,30 +162,52 @@ class GestMag_Main(GestMag_Thread):
         # after starting the thread update information reading the db
         time.sleep(2)
         self.initCompleted = self.initialUpdate()
-        plcBusy = False
-        x = 1
-        y = 1
-        
+                
         while self.isRunning:
             if not self.eventQueue.empty() and self.initCompleted:
                 lastEvent = self.eventQueue.get(block=False)
                 self.log.info(lastEvent)
-                if lastEvent['command'] == 'ADDBLK':
-                    if not plcBusy:
+                if lastEvent['command'] == 'ADDBLK':                    #new block from Buffer IN
+                    if lastEvent['prop']['materialID'] in [rm.materialID for rm in self.recipeList]:
                         self.log.info('TRYING TO ALLOCATE NEW BLOCK')
-                        mesg = {'from':self.getName(),
+                        v=0
+                        o=0
+                        s=0
+                        for r in self.recipeList:                       #check which is the most common first step of recipes using the block's material
+                            if r.materialID==lastEvent['prop']['materialID'] :
+                                if r.seq[0]=='V':
+                                    v+=1
+                                elif r.seq[0]=='O':
+                                    o+=1
+                                elif r.seq[0]=='P':
+                                    s+=1    
+                                pass
+                            
+                            pass
+                        cncRequired=max(v,o,s)                                      #plurality voting
+                        self.log.info('cncRequired: {}'.format(self.getKey(type_CNC,cncRequired)))
+                        if cncRequired==v:
+                            cncRequired=type_CNC["ver_cut"]
+                        elif cncRequired==o:
+                            cncRequired=type_CNC["ori_cut"]
+                        elif cncRequired==s:
+                            cncRequired=type_CNC["sagomatore"]
+                            pass
+                        
+                        cncDest=self.choseDestination(cncRequired)                  #find the right destination
+                        
+                        mesg = {'from':self.getName(),                              #creation of the message to send to the PLC
                                 'to':'GestMag_PLC',
                                 'command':'MOVE',
                                 'prop':{'source':self.bufferPos,
-                                      'dest':(x, y),
+                                      'dest':(cncDest['xmin'], cncDest['ymin']),
                                       'blockID':lastEvent['prop']['blockID']}
                                 }
+                        
                         self.publish(self.mqttConf['main2plc'], mesg)
-                        plcBusy = True
-                        y += 1
                         pass
                     else:
-                        self.eventQueue.put(lastEvent)
+                        #self.eventQueue.put(lastEvent)
                         pass
                 elif lastEvent['command'] == 'MOVE_OK':
                     mesg = {'from':self.getName(),
@@ -195,9 +225,9 @@ class GestMag_Main(GestMag_Thread):
                     mesg['command']='UPDBLK'
                     self.publish(self.mqttConf['main2db'], mesg)
                     time.sleep(0.1)
-                    mesg['command']='UPDATE'
+                    mesg['to']='GestMag_GUI'
+                    mesg['command']='UPDVIS'
                     self.publish(self.mqttConf['main2gui'], mesg)
-                    plcBusy = False
                 else:
                     pass
             time.sleep(0.5)
@@ -211,9 +241,13 @@ class GestMag_Main(GestMag_Thread):
     #################### MAIN_LOOP ########################
     #######################################################
     
+    #######################################################
+    #################### FUNCTIONS ########################
+    #######################################################
+    
     def initialUpdate(self):
         # list of commands to perfmorm initial memory update
-        comlist = ['UPDCELL', 'UPDMAT', 'UPDBLK', 'UPDRCP', 'UPDORD']
+        comlist = ['UPDCELL', 'UPDMAT', 'UPDBLK', 'UPDWIP', 'UPDRCP', 'UPDORD']
         for c in comlist:
             mesg = {'from':self.getName(),
               'to':'GestMag_DB',
@@ -221,14 +255,63 @@ class GestMag_Main(GestMag_Thread):
             self.publish(self.mqttConf['main2db'], mesg)
             self.log.info('Initial Update of: {}'.format(c))
             time.sleep(0.5)
+            
+        mesg['to']='GestMag_GUI'
+        mesg['command']='UPDVIS'
+        self.publish(self.mqttConf['main2gui'], mesg)
+        mesg['command']='UPDMAC'
+        mesg['machines']=self.machineList
+        self.publish(self.mqttConf['main2gui'], mesg)
+        
+        self.log.info('Initial Update of: Visualization')
         return True
     
-    def createInstance(self, l, c):
-        # instantiate c using properties from list of dictionaries l
-        tmp = []
-        for i in l:
-            tmp.append(c(prop=i))
-        return tmp
+    def getCell(self, x,y):    
+        for c in self.cellList: 
+            if c.addr[0]==x and c.addr[1]==y: 
+                return c
+    
+    def choseDestination(self,cncReq):                      #determination of the cell which the block will be sent to
+        cncData={'name':'','dist':0,'xmin':0,'ymin':0}      
+        cncAvail=[]
+        for c in self.machineList:
+            xmin=self.conf['mag']['x']+10
+            ymin=self.conf['mag']['y']+10
+            Dmin=math.sqrt(xmin**2+ymin**2)
+            self.log.debug('Initial Dmin:{}'.format(Dmin))
+            if c['type']==cncReq :
+                self.log.info('Analysing cnc: {} - addr:{}'.format(c['name'],c['addr']))
+                Xc=c['addr']
+                for x in range (self.conf['mag']['x']):
+                    for y in range(1,self.conf['mag']['y']):
+                        D=math.sqrt((Xc-x)**2+y**2)
+                        self.log.debug('Cell: {},{} - Empty: {} - Dist: {}'.format(x,y,self.getCell(x,y).isEmpty(),D))
+                        if self.getCell(x,y).isEmpty():                                 ##come ricavare se cell Ë libera o no
+                            if D<Dmin :
+                                self.log.debug('Found Dmin={} for cnc: {}'.format(Dmin,c['name']))
+                                xmin=x
+                                ymin=y
+                                Dmin=D
+                                pass
+                            pass
+                    pass
+                pass
+                cncData={'name':c['name'],
+                         'dist':Dmin,
+                         'xmin':xmin,
+                         'ymin':ymin}
+                self.log.info('Data for cnc: {}'.format(cncData))
+                cncAvail.append(deepcopy(cncData))
+            pass
+        self.log.info('Available cnc: {} _ dist:{}'.format([c['name'] for c in cncAvail], [c['dist'] for c in cncAvail ]))
+        cnc=min(cncAvail,key=lambda f: f['dist'])
+        return cnc
+    
+    
+    #######################################################
+    #################### FUNCTIONS ########################
+    #######################  END  #########################
+    
     
     
     

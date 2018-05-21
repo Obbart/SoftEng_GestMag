@@ -5,7 +5,7 @@ Created on 12 mar 2018
 '''
 
 from copy import deepcopy
-import queue, time, json, queue
+import time, json, queue
 
 from MODULES.GestMag_Threads import GestMag_Thread
 from PLC.PLC_Sim import BUFFER, CRANE
@@ -17,13 +17,14 @@ class PLC_Com(GestMag_Thread):
         super(PLC_Com, self).__init__(conf, mqttconf)
         self.subList = [mqttconf['main2plc']]
         self.buffer = BUFFER(addr=conf['buffer']['addr'])
+        self.crane = CRANE(s=10)  # velocita' in celle al secondo
         
-        self.bufferqueue = queue.Queue(maxsize=1)
-        self.crane = CRANE(s=1)  # velocita' in celle al secondo
         self.matList = []
         self.progList = []
         
         self.eventQueue = queue.Queue()
+        self.bufferqueue = queue.Queue(maxsize=1)
+        self.busy=False
         pass
     
     def on_mainMessage(self, client, userdata, msg):
@@ -37,6 +38,7 @@ class PLC_Com(GestMag_Thread):
             self.log.info('\n'.join(self.progList))
             pass
         elif mesg['command'] == 'MOVE':
+            self.busy=True
             self.eventQueue.put(mesg)
             mesgr = {'from':self.getName(),
                   'to':'GestMag_MAIN',
@@ -70,19 +72,45 @@ class PLC_Com(GestMag_Thread):
     def moveBlock(self, prop):
         s = prop['source']
         d = prop['dest']
-        self.crane.setDest(s);
+        self.log.info('Crane dest: {}'.format(s))
+        self.crane.setDest(s)
+        self.sendStat()
         time.sleep(self.crane.calcTime(s))
         self.crane.setActPos(s)
         time.sleep(1)
+        self.log.info('Crane load: {}'.format(self.buffer.blockID_loaded))
         self.crane.loadPiece(self.buffer.blockID_loaded)
+        self.sendStat()
         time.sleep(1)
+        self.log.info('Buffer unload')
         self.buffer.unloadPiece()
+        self.sendStat()
         time.sleep(1)
+        self.buffer.setFree()
+        self.log.info('Crane dest: {}'.format(d))
         self.crane.setDest(d)
+        self.sendStat()
         time.sleep(self.crane.calcTime(d))
         self.crane.setActPos(d)
         time.sleep(1)
+        self.log.info('Crane unload: {}'.format(self.crane.blockID_loaded))
+        self.crane.unloadPiece()
+        self.sendStat()
+        time.sleep(1)
+        self.crane.setFree()
+        self.sendStat()
         return True
+    
+    def sendStat(self):
+        mesg={'form':self.getName(),
+              'to':'GestMag_GUI',
+              'command':'PLCSTAT',
+              'stat':{'bufferin':self.buffer.getStat(),
+                      'bufferout':self.buffer.getStat(),
+                      'crane':self.crane.getStat()
+                      }
+              }
+        self.publish(self.mqttConf['plc2gui'], mesg)
     
     #######################################################
     #################### MAIN_LOOP ########################
@@ -93,7 +121,7 @@ class PLC_Com(GestMag_Thread):
          
         self.log.info("Thread STARTED")
         last = time.time()
-        genTimeout = 30
+        genTimeout = 10
         lastEvent = ''
         
         while self.isRunning:
@@ -106,18 +134,20 @@ class PLC_Com(GestMag_Thread):
                     lastEvent['to'] = 'GestMag_MAIN'
                     lastEvent['command'] = 'MOVE_OK'
                     self.publish(self.mqttConf['plc2main'], lastEvent)
+                    self.busy=False
                     pass
                 else:
                     pass
                 pass
                     
-            if time.time() - last > genTimeout:
+            if time.time() - last > genTimeout and not self.busy:
                 last = time.time()
                 self.bufferqueue.put(self.buffer.simNewBlock(self.matList))
                 pass
             
             if self.bufferqueue.full() :
                 self.newBlock(self.bufferqueue.get())
+                self.sendStat()
                 pass
                 
             time.sleep(0.5)

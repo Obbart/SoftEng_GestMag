@@ -102,6 +102,27 @@ class DB_Com(GestMag_Thread):
                 self.delBlock(msg['prop'])
                 self.updBlocks()
                 pass
+            elif command=='ADDWIP':
+                self.addWip(msg['prop'])
+                self.updWips() 
+                pass
+            elif command=='UPDWIP':
+                self.updWips() 
+            elif command=='GETWIP':
+                wipList=self.getWip(matID=msg['matID'])
+                mesg={'from':self.getName(),
+                      'to':'GestMag_MAIN',
+                      'command': 'GETWIP_RESP',
+                      'wiplist': wipList}
+                self.publish(self.mqttConf['db2main'], mesg)
+                pass
+            elif command=='SETWIP':
+                self.setWip(wipID=mesg['wipID'], prop=mesg['prop'])
+                pass
+            elif command=='DELWIP':
+                self.delWip(msg['prop'])
+                self.updWips()
+                pass
             elif command=='ADDRCP':
                 self.addRecipe(msg['prop'])
                 self.updRecipes()
@@ -165,8 +186,8 @@ class DB_Com(GestMag_Thread):
     
     ##### MATERIALS #####
     def addMaterial(self, matProp):
-        q='INSERT INTO Materials (materialID, density, lift, color, restTime)\
-            VALUES (\'{materialID}\', \'{density}\', \'{lift}\', \'{color}\', \'{restTime}\')'
+        q='INSERT INTO Materials (materialID, density, lift, color, restTime, cutSpeed)\
+            VALUES (\'{materialID}\', \'{density}\', \'{lift}\', \'{color}\', \'{restTime}\', \'{cutSpeed}\'))'
         q=q.format(**matProp)
         rc=self.dbQuery(q)
         self.log.debug(rc)
@@ -239,10 +260,51 @@ class DB_Com(GestMag_Thread):
         self.dbQuery(q)
         pass
     
+    ##### WIPS #####
+    def addWip(self,wipProp):
+        q='INSERT INTO Wips (wipID, materialID, recipeID, recipeStep) \
+            VALUES (\'{wipID}\', \'{materialID}\', \'{recipeID}\', \'{recipeStep}\')'
+        q=q.format(**wipProp)
+        self.dbQuery(q)
+        pass
+    def updWips(self):
+        wipList=self.getWip()
+        mesg={'from':self.getName(),
+              'to':'GestMag_MAIN',
+              'command': 'WIPLIST',
+              'wips': wipList}
+        self.publish(self.mqttConf['db2main'], mesg)
+        pass
+    def getWip(self, matID=None):
+        #returns a block or a list of blocks with all properties
+        q="SELECT * FROM Wips WHERE materialID LIKE '{id}'\
+            ORDER BY materialID ASC"
+        if matID is None:
+            matID='%'
+            pass
+        query=self.dbQuery(q.format(id=matID))
+        if query is not False:
+            return self.query2dict(query)
+        pass
+    def setWip(self, wipID, wipProp):
+        q='UPDATE Wips \
+            SET recipeStep=\'{recipeStep}\' \
+            WHERE wipID = \'{wipID}\''
+        q=q.format(wipID=wipID, recipeStep=wipProp)
+        self.dbQuery(q)
+        pass
+        pass
+    def delWip(self, wipID=None):
+        q='DELETE FROM Wips \
+            WHERE wipID = \'{wipID}\' '
+        q=q.format(**wipID)
+        self.dbQuery(q)
+        pass
+    
     ##### RECIPES #####
     def addRecipe(self, rcpProp):
-        q='INSERT INTO Recipes(recipeID, materialID, nVertCut, spVertCut, nOrCut, spOrCut, progSagom, execOrder)\
-            VALUES (\'{recipeID}\', \'{materialID}\', \'{nVertCut}\', \'{spVertCut}\',\'{nOrCut}\', \'{spOrCut}\',\'{progSagom}\',\'{execOrder}\')'
+        q='INSERT INTO Recipes(recipeID, materialID, nVertCut, spVertCut, nOrCut, spOrCut, progSagom, progTime, execOrder)\
+            VALUES (\'{recipeID}\', \'{materialID}\', \'{nVertCut}\', \'{spVertCut}\',\'{nOrCut}\', \'{spOrCut}\',\'{progSagom}\',\'{progTime}\',\'{execOrder}\')'
         q=q.format(**rcpProp)
         self.dbQuery(q)
         pass
@@ -284,7 +346,7 @@ class DB_Com(GestMag_Thread):
                 query=self.dbQuery(q) #if are changed, delete all cells, for simplicity
                 if query is not False:
                     for x in range(cellProp['x']): #recreate cells with new uuids
-                        for y in range(cellProp['y']):
+                        for y in range(1,cellProp['y']):
                             q='INSERT INTO Cells (cellID, cellX, cellY)\
                             VALUES (\'{cellID}\', \'{xx}\', \'{yy}\')'
                             q=q.format(cellID=uuid.uuid4().hex,xx=x,yy=y)
@@ -369,7 +431,7 @@ class DB_Com(GestMag_Thread):
                     m[record.fieldName(k)]=query.value(k)
             resp.append(copy.deepcopy(m))
             m.clear()
-        self.log.info(str(resp))
+        #self.log.info(str(resp))
         return resp   
  
     def run(self):
