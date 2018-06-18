@@ -1,5 +1,5 @@
 {
-	"version": 0.11,
+	"version": 0.13,
 	"log_level": "INFO",
 	"mqtt": {
 		"addr": "localhost",
@@ -38,7 +38,7 @@
 	"main": {
 		"modName": "GestMag_MAIN",
 		"mag": {
-			"x": 10,
+			"x": 11,
 			"y": 11
 		}
 	},
@@ -54,33 +54,48 @@
 		"machines": [
 			{
 				"name": "VCUT1",
-				"addr": 0,
+				"addr": 1,
 				"type": 0,
-				"status": 0
+				"status": 0,
+				"blockID": 0,
+				"wipID":0,
+				"program":""
 			},
 			{
 				"name": "OCUT1",
-				"addr": 2,
+				"addr": 3,
 				"type": 1,
-				"status": 0
+				"status": 0,
+				"blockID": 0,
+				"wipID":0,
+				"program":""
 			},
 			{
 				"name": "2.5D",
 				"addr": 5,
 				"type": 2,
-				"status": 0
+				"status": 0,
+				"blockID": 0,
+				"wipID":0,
+				"program":""
 			},
 			{
 				"name": "OCUT2",
 				"addr": 7,
 				"type": 1,
-				"status": 0
+				"status": 0,
+				"blockID": 0,
+				"wipID":0,
+				"program":""
 			},
 			{
 				"name": "VCUT2",
 				"addr": 9,
 				"type": 0,
-				"status": 0
+				"status": 0,
+				"blockID": 0,
+				"wipID":0,
+				"program":""
 			}
 		]
 	},

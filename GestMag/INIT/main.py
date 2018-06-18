@@ -106,6 +106,7 @@ def launchPLC():
 def launchUI():
     global app
     global wind
+    c['gui']['plc']=c['plc']
     app = PyQt5.QtWidgets.QApplication(sys.argv)
     wind = GestMag_GuInterface(c['gui'], c['mqtt'])
     threadList['{}'.format(wind.common.name)] = {'th':wind, 'lastSeen':int(time.time()), 'cl':GestMag_GuInterface}

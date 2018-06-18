@@ -4,10 +4,12 @@ Created on 12 mar 2018
 @author: Emanuele
 '''
 import time, json, uuid
+from parse import parse
 from copy import deepcopy
 from GUI.GestMagUI import Ui_GestMag_WINDOW
 from MODULES.GestMag_Threads import GestMag_Thread
-from MODULES.Objects import CELL, BLOCK, MATERIAL, WIP, status_CNC
+from MODULES.Objects import CELL, BLOCK, MATERIAL, WIP
+from CNC.CNC_Sim import type_CNC,status_CNC
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import Qt, pyqtSignal, QDate
 from random import randrange
@@ -43,6 +45,10 @@ class GestMag_GuInterface(QMainWindow):
         self.ui.btn_addOrder.clicked.connect(self.on_addOrder)
         self.ui.btn_delOrder.clicked.connect(self.on_delOrder)
         self.ui.btn_createStorage.clicked.connect(self.on_createStorage)
+        self.ui.btn_cncLoad.clicked.connect(lambda: self.on_cncLoadUnload(True))
+        self.ui.btn_cncUnload.clicked.connect(lambda: self.on_cncLoadUnload(False))
+        self.ui.btn_move.clicked.connect(self.on_storageMove)
+        #initialize other interface elements
         
         # interface update parameters and functions
         self.matList = []
@@ -120,6 +126,7 @@ class GestMag_GuInterface(QMainWindow):
                 self.blkList = self.common.createInstance(deepcopy(self.blkList), BLOCK)
                 self.blkList = self.common.associateMaterial(self.blkList, self.matList)
                 self.common.log.info('Blocks Updated')
+                self.signal.emit()
                 pass
             elif mesg['command'] == 'WIPLIST':
                 self.wipList = mesg['wips']
@@ -132,6 +139,10 @@ class GestMag_GuInterface(QMainWindow):
                 self.ymax = max(self.cellList, key=lambda f: f['cellY'])['cellY']+1
                 self.ui.tbl_storage.setRowCount(self.ymax)
                 self.ui.tbl_storage.setColumnCount(self.xmax)
+                self.ui.spn_destX.setMaximum(self.xmax)
+                self.ui.spn_destY.setMaximum(self.ymax)
+                self.ui.spn_srcX.setMaximum(self.xmax)
+                self.ui.spn_srcY.setMaximum(self.ymax)
                 self.cellList = self.common.createInstance(deepcopy(self.cellList), CELL)
                 self.common.log.info('Cells Updated - x:{},y:{}'.format(self.xmax, self.ymax))
                 self.signal.emit()
@@ -245,8 +256,8 @@ class GestMag_GuInterface(QMainWindow):
         mesg = deepcopy(self.mesg)
         ordd['orderID'] = str(self.ui.txt_orderID.text())
         ordd['customer'] = str(self.ui.txt_customer.text())
-        ordd['expDate'] = str(self.ui.dat_deliveryDate.date().toString("yyyy MMM dd"))
-        ordd['nPieces'] = int(self.ui.spn_nPieces.value())
+        #ordd['expDate'] = str(self.ui.dat_deliveryDate.date().toString("yyyy MMM dd"))
+        ordd['expDate'] = str(time.asctime(time.gmtime(self.ui.dat_deliveryDate.dateTime().toSecsSinceEpoch())))
         ordd['recipeID'] = str(self.ui.cmb_recipeID2.currentText())
         mesg['command'] = 'ADDORD'
         mesg['prop'] = ordd
@@ -272,6 +283,37 @@ class GestMag_GuInterface(QMainWindow):
         return uid
         pass
     
+    def on_cncLoadUnload(self, cnc, load):
+        pass
+    
+    def on_storageMove(self):
+        mesg=deepcopy(self.mesg)
+        mesg['command']='MOVE'
+        mesg['from']=self.common.getName()
+        mesg['to']='GestMag_PLC'
+        if self.ui.rad_move.isChecked():
+            if self.ui.cmb_blockID3.currentText() == '-':
+                src=(int(self.ui.spn_srcX.value(),int(self.ui.spn_srcY.value())))
+            else:
+                #src=(tuple(self.ui.cmb_blockID3.currentText().split('-')[1].split(',').strip('()')))
+                src=(tuple(parse("({:d},{:d})",self.ui.cmb_blockID3.currentText().split('-')[1].strip())))
+            dst=(int(self.ui.spn_destX.value()),int(self.ui.spn_destY.value()))
+        elif self.ui.rad_load.isChecked():
+            src=(self.common.conf['plc']['buffer']['addr'],0)
+            dst=(int(self.ui.spn_destX.value(),int(self.ui.spn_destY.value())))
+        elif self.ui.rad_unload.isChecked():
+            src=(int(self.ui.spn_srcX.value(),int(self.ui.spn_srcY.value())))
+            dst=(self.common.conf['plc']['buffer']['addr'],0)
+        else:
+            pass
+        if self.getCell(src[0], src[1]).blockID is not None and self.getCell(dst[0], dst[1]).isEmpty():
+            mesg['prop']={'source':src,
+                          'dest':dst,
+                          'blockID':self.getCell(src[0], src[1]).blockID}
+            self.common.log.info(mesg)
+            self.common.publish(self.common.mqttConf['gui2main'], mesg)
+        pass
+    
     def getCell(self, x, y):    
         for c in self.cellList: 
             if c.addr[0] == x and c.addr[1] == y: 
@@ -292,18 +334,26 @@ class GestMag_GuInterface(QMainWindow):
             pass
         elif self.last == 'UPDVIS':
             self.common.log.info('Block & Wip Update')
+            self.ui.cmb_blockID2.clear()
+            self.ui.cmb_blockID3.clear()
             for x in range(self.xmax):
                 for y in range(1,self.ymax):
                     # le celle della visualizzazione hanno x e y invertite!
                     itm = self.ui.tbl_storage.cellWidget(y, x)
                     itm.setCell(self.getCell(x, y))
+                    found=False
                     for bb in self.blkList:
                         if bb.blockID == itm.cell.blockID:
                             itm.setBlock(bb)
+                            self.ui.cmb_blockID2.addItem('{} - {}'.format(bb.materialID,(x,y)))
+                            self.ui.cmb_blockID3.addItem('{} - {}'.format(bb.materialID,(x,y)))
+                            found=True
                     for ww in self.wipList:
                         if ww.wipID == itm.cell.blockID:
                             itm.setWip(ww)
-
+                            found=True
+                    if not found:
+                        itm.emptyCell()
         elif self.last == 'UPDMAC':
             self.common.log.info('Machines Update')
             for x in range(self.xmax):
@@ -314,11 +364,11 @@ class GestMag_GuInterface(QMainWindow):
                         pass
                     pass
                 pass
-            pass            
-            
+            pass   
         else:
             pass
         self.last = ''
+        
         self.ui.tbl_storage.resizeColumnsToContents()
         self.ui.tbl_storage.resizeRowsToContents()
         pass
@@ -349,6 +399,11 @@ class visitem(QWidget):
     def setCell(self, c):
         self.cell = c
         pass
+    
+    def emptyCell(self):
+        self.lbl_block.setText('-')
+        self.lbl_stat.setText('-')
+        self.setColor(Qt.transparent)
     
     def setMachine(self, m):
         self.lbl_block.setText(m['name'])

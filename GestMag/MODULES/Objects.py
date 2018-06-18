@@ -7,8 +7,6 @@ Created on 26 apr 2018
 import uuid, time
 from datetime import datetime, timedelta
 
-status_CNC = {"free":0, "busy":1, "waiting_unloading_WIP":2, "broken":3}
-type_CNC = {"ver_cut":0, "ori_cut":1, "sagomatore":2}
 
 status_MP = {"ready":0, "not_ready":1}
 type_Mat = {"a":0, "b":1} 

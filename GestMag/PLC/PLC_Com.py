@@ -72,14 +72,18 @@ class PLC_Com(GestMag_Thread):
     def moveBlock(self, prop):
         s = prop['source']
         d = prop['dest']
+        if self.buffer.blockID_loaded is None:
+            block=prop['blockID']
+        else:
+            block=self.buffer.blockID_loaded
         self.log.info('Crane dest: {}'.format(s))
         self.crane.setDest(s)
         self.sendStat()
         time.sleep(self.crane.calcTime(s))
         self.crane.setActPos(s)
         time.sleep(1)
-        self.log.info('Crane load: {}'.format(self.buffer.blockID_loaded))
-        self.crane.loadPiece(self.buffer.blockID_loaded)
+        self.log.info('Crane load: {}'.format(block))
+        self.crane.loadPiece(block)
         self.sendStat()
         time.sleep(1)
         self.log.info('Buffer unload')
@@ -93,7 +97,7 @@ class PLC_Com(GestMag_Thread):
         time.sleep(self.crane.calcTime(d))
         self.crane.setActPos(d)
         time.sleep(1)
-        self.log.info('Crane unload: {}'.format(self.crane.blockID_loaded))
+        self.log.info('Crane unload: {}'.format(block))
         self.crane.unloadPiece()
         self.sendStat()
         time.sleep(1)
@@ -121,7 +125,7 @@ class PLC_Com(GestMag_Thread):
          
         self.log.info("Thread STARTED")
         last = time.time()
-        genTimeout = 10
+        genTimeout = 60
         lastEvent = ''
         
         while self.isRunning:

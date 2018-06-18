@@ -3,15 +3,28 @@ Created on 12 mar 2018
 
 @author: Emanuele
 '''
-import time, json
+import time, json, queue
+from copy import deepcopy
 from MODULES.GestMag_Threads import GestMag_Thread
 from CNC.CNC_Sim import CNC_Sim, type_CNC, status_CNC
+from MODULES.Objects import BLOCK,WIP,MATERIAL
+
+from threading import Timer
 
 class CNC_Com(GestMag_Thread):
 
     def __init__(self, conf, mqttconf):
         super(CNC_Com, self).__init__(conf, mqttconf)
         self.subList = [mqttconf['main2cnc']]
+        self.mqttConf=mqttconf
+        self.conf=conf
+        
+        self.matList=[]
+        self.blockList=[] ##da implementare!
+        self.wipList=[]
+        
+        #internal management of the events
+        self.eventQueue = queue.Queue()
         
         # load machine list from configuration file
         self.machineList = []
@@ -24,17 +37,26 @@ class CNC_Com(GestMag_Thread):
         self.log.debug('received: {}'.format(msg.payload))
         mesg = json.loads(msg.payload)
         if mesg['to'] == self.getName():
-            if mesg['command'] == 'LOADCNC':
+            if mesg['command'] == 'MATLIST':
+                self.matList = mesg['materials']
+                self.dict2list(self.matList, 'materialID')
+                self.matList = self.common.createInstance(deepcopy(self.matList), MATERIAL)
+                pass
+            elif mesg['command'] == 'BLKLIST':
+                self.blkList = mesg['blocks']
+                self.blkList = self.createInstance(deepcopy(self.blkList), BLOCK)
+                self.blkList = self.associateMaterial(self.blkList, self.matList)
+                pass
+            elif mesg['command'] == 'WIPLIST':
+                self.wipList = mesg['wips']
+                self.wipList = self.createInstance(deepcopy(self.wipList), WIP)
+                self.wipList = self.associateMaterial(self.wipList, self.matList)
+                pass
+            elif mesg['command'] == 'LOADCNC':
                 prop=mesg['prop']
                 for m in self.machineList:
                     if m.getName() == prop['name']:  # search the correct machine in the list and load programs
-                        if prop['type']==type_CNC['sagomatore']:
-                            m.setProgram(prop['job'])
-                            pass
-                        else: 
-                            m.setCuts(prop['job'])
-                            pass
-                        pass
+                        m.setRecipe(prop['recipe'],prop['step'])
                         m.loadPiece(prop['blockID'])
                         break
                     pass
@@ -46,14 +68,73 @@ class CNC_Com(GestMag_Thread):
                         break
                 pass
             elif mesg['command'] == 'GETCNC':
+                data=[]
+                mesg['from']=self.getName()
+                mesg['to']='GestMag_MAIN'
                 for m in self.machineList:
-                    if m.getName() == mesg['name']:
-                        data=m.getData()
-                        self.publish(self.mqttconf['cnc2main'], data)
+                    data.append(m.getData())
+                mesg['machines']=data
+                self.publish(self.mqttConf['cnc2main'], mesg)
                 pass
             else:
                 pass
         pass
+    
+    
+    #######################################################
+    #################### FUNCTIONS ########################
+    ####################################################### 
+    
+    def newWIP (self, b,cnc,ss):           #b=blockID now loaded in the CNC    cnc=in which cnc         
+        wipp={
+            "materialID":b.material,
+            "recipeID":cnc.recipe_lavorato.recipeID,
+            "recipeStep":ss+1 }
+        wip=WIP(prop=wipp,new=True)
+        mesg = {'from':self.getName(),
+               'to':'GestMag_MAIN',
+               'command':'ADDWIP',
+               'prop':wip.getData()
+               }
+        mesg['prop']['source']=cnc.addr
+        self.eventQueue.put(mesg)
+        '''cnc.setStatus(status_CNC['waiting_unloading_WIP'])
+        self.log.info(mesg)
+        self.publish(self.mqttConf['cnc2main'], mesg)'''
+        pass
+    
+    def workCycle(self,m,ss):       #m=cnc that is working   ss=recipe step
+        for b in self.blockList:
+            if b.blockID==m.blockID_lavorato :
+                if m.recipe_lavorato.seq[ss]=='o':          #Modification of the dimensions of the block in input, due to the machining
+                    b.height=b.height-(m.nCuts*m.wCut)
+                elif m.recipe_lavorato.seq[ss]==('v' or 's'):
+                    b.length=b.length-(m.nCuts*m.wCut+m.lSag)
+                pass
+                if b.height>self.conf['cnc']['minLenght'] and b.length>self.conf['cnc']['minLenght'] :      #check if there is a useful piece of material
+                    blkp= {
+                                "materialID": b.materialID,
+                                "blockWidth": b.width,
+                                "blockHeight": b.height,
+                                "blockLenght": b.length
+                                }
+                    blk=BLOCK(prop=blkp,new=True)
+                    blk.date=b.date
+                    mesg = {'from':self.getName(),
+                            'to':'GestMag_MAIN',
+                            'command':'ADDBLK',
+                            'prop':blk.getData()
+                            }
+                    mesg['prop']['source']=m.addr
+                    self.eventQueue.put(mesg)
+                pass
+                self.newWIP(b,m,ss)
+            pass
+        pass
+    
+    #######################################################
+    #################### FUNCTIONS ########################
+    ########################END############################ 
     
     #######################################################
     #################### MAIN_LOOP ########################
@@ -63,18 +144,67 @@ class CNC_Com(GestMag_Thread):
         self.client.message_callback_add(self.subList[0], self.on_mainMessage)
         
         self.log.info("Thread STARTED")
-        
+        cncBusy=False
         while self.isRunning:
             time.sleep(self.mqttConf["pollPeriod"])
             mesg={'from': self.getName(),
                   'to':'GestMag_MAIN',
-                  'command':''}
+                  'command':'',
+                  'prop':''}
+
             for m in self.machineList:      #periodically check if there is machine waiting to be unloaded
-                if m.getStatus() == status_CNC['waiting_unloading_WIP']:
+                if m.getStatus()== status_CNC['busy']:
+                    data=m.getData()
+                    if data['blockID']==None :
+                        for w in self.wipList:
+                            if w.wipID==data['wipID']:
+                                ss=w.recipeStep
+                                pass
+                            pass
+                    else:
+                        ss=0
+                        pass
+                    t=Timer(m.lavTimer,self.workCycle(m,ss))
+                    t.start()
+                    pass
+                '''
+                if m.getStatus() == status_CNC['waiting_unloading_WIP']:  ##not so useful
                     mesg['command']='MACHINEREADY'
+                    mesg['prop']='WIP'
                     mesg['name']=m.getName()
                     self.publish(self.mqttConf['cnc2main'], mesg)
+                elif m.getStatus() == status_CNC['waiting_unloading_MP']:  ##not so useful
+                    mesg['command']='MACHINEREADY'
+                    mesg['prop']='MP'
+                    mesg['name']=m.getName()
+                    self.publish(self.mqttConf['cnc2main'], mesg)
+                '''
                 pass
+            
+            if not self.eventQueue.empty() and not cncBusy:
+                    msg=self.eventQueue.get()
+                    if msg['command']=='ADDBLK':
+                        for m in self.machineList :
+                            if msg['from']==m.getName() and not cncBusy:
+                                m.setStatus(status_CNC['waiting_unloading_MP'])
+                                self.log.info(msg)
+                                self.publish(self.mqttConf['cnc2main'], msg)
+                                cncBusy=True
+                                pass
+                            pass
+                    elif msg['command']== 'ADDWIP':
+                        for m in self.machineList :
+                            if msg['from']==m.getName() and not cncBusy:
+                                m.setStatus(status_CNC['waiting_unloading_WIP'])
+                                self.log.info(msg)
+                                self.publish(self.mqttConf['cnc2main'], msg)
+                                cncBusy=True
+                                pass
+                            pass
+                    else:
+                        self.eventQueue.put(msg)
+                        pass
+                    pass
         self.log.info("Thread STOPPED")
         return
     

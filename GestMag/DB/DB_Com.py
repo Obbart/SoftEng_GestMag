@@ -156,6 +156,9 @@ class DB_Com(GestMag_Thread):
             elif command=='SETCELL':
                 self.setCell(msg['prop'])
                 pass
+            elif command=='EMPCELL':
+                self.emptyCell(msg['prop'])
+                pass
             elif command=='ADDORD':
                 self.addOrder(msg['prop'])
                 self.updOrder()
@@ -187,7 +190,7 @@ class DB_Com(GestMag_Thread):
     ##### MATERIALS #####
     def addMaterial(self, matProp):
         q='INSERT INTO Materials (materialID, density, lift, color, restTime, cutSpeed)\
-            VALUES (\'{materialID}\', \'{density}\', \'{lift}\', \'{color}\', \'{restTime}\', \'{cutSpeed}\'))'
+            VALUES (\'{materialID}\', \'{density}\', \'{lift}\', \'{color}\', \'{restTime}\', \'{cutSpeed}\')'
         q=q.format(**matProp)
         rc=self.dbQuery(q)
         self.log.debug(rc)
@@ -380,6 +383,13 @@ class DB_Com(GestMag_Thread):
         q=q.format(**cellProp)
         self.dbQuery(q)
         pass
+    def emptyCell(self, cellProp):
+        q='UPDATE Cells \
+            SET blockID=NULL, cellStatus=0 \
+            WHERE cellX={cellX} AND cellY={cellY}'
+        q=q.format(**cellProp)
+        self.dbQuery(q)
+        pass   
     def delCell(self):
         q='DELETE FROM Cells'
         self.dbQuery(q)

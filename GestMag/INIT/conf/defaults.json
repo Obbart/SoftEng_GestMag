@@ -19,6 +19,12 @@
 		"blockLenght": 0,
 		"blockProductionDate": 0
 	},
+	"WIP":{
+		"wipID":"",
+		"materialID":"",
+		"recipeID":"",
+		"recipeStep":0
+	},
 	"cell": {
 		"cellID": "",
 		"blockID": "",
@@ -34,7 +40,9 @@
 		"spVertCut": 0,
 		"spOrCut": 0,
 		"progSagom": "",
-		"execOrder": ""
+		"lSag":0,
+		"execOrder": "",
+		"lavTimeList":""
 	},
 	"order": {
 		"orderID": "",
