@@ -359,7 +359,7 @@ class GestMag_GuInterface(QMainWindow):
             for x in range(self.xmax):
                 itm = self.ui.tbl_storage.cellWidget(0, x)
                 for mm in self.machineList:
-                    if mm['addr'] == x:
+                    if mm['addr'][0] == x:
                         itm.setMachine(mm)
                         pass
                     pass

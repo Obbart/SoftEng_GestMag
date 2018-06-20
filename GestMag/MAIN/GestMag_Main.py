@@ -39,7 +39,8 @@ class GestMag_Main(GestMag_Thread):
         self.machineList = conf['cnc']['machines']
         
         # load buffer properties from configuration file
-        self.bufferPos = (conf['plc']['buffer']['addr'], 0)
+        self.bufferINPos = tuple(conf['plc']['bufferIN']['addr'])
+        self.bufferOUTPos = tuple(conf['plc']['bufferOUT']['addr'])
         self.bufferBlockID = ''
         # crane useful data
         self.cranePos = 0
@@ -158,14 +159,8 @@ class GestMag_Main(GestMag_Thread):
             pass 
         elif mesg['to'] == 'GestMag_PLC':
             if mesg['command'] == 'MOVE':
-                msg = {'form':self.getName(),
-                     'to':'GestMag_DB',
-                     'command':'EMPCELL',
-                     'prop':{'cellX':mesg['prop']['source'][0],
-                             'cellY':mesg['prop']['source'][1]}}
-                self.publish(self.mqttConf['main2db'], msg)
-                time.sleep(0.05)
                 self.publish(self.mqttConf['main2plc'], mesg)
+                self.unloadCell(mesg['prop']['source'])
             pass 
         pass
     
@@ -190,12 +185,18 @@ class GestMag_Main(GestMag_Thread):
         
         plcBusy = False
         BUFFER_OUT=0
+        moveData={}
                 
         while self.isRunning:
+            ###################################
+            # VALUTAZIONE CODA COMANDI LUNGHI #
+            ###################################
             if not self.eventQueue.empty() and self.initCompleted:
                 lastEvent = self.eventQueue.get(block=False)
                 self.log.info(lastEvent)
-                if lastEvent['command'] == 'ADDBLK':  # new block from Buffer IN or CNC
+               
+                # new block from Buffer IN or CNC               
+                if lastEvent['command'] == 'ADDBLK':
                     if not plcBusy:
                         self.log.info('TRYING TO ALLOCATE NEW BLOCK')
                         v = 0
@@ -218,54 +219,73 @@ class GestMag_Main(GestMag_Thread):
                         elif cncRequired == s:
                             cncRequired = type_CNC['S']
                             pass
-                        
                         cncDest = self.choseDestination(cncRequired)  # find the right destination
-                        
+                        '''
                         mesg = {'from':self.getName(),  # creation of the message to send to the PLC
                                 'to':'GestMag_PLC',
                                 'command':'MOVE',
                                 'prop':{'source':lastEvent['prop']['source'],
-                                      'dest':(cncDest['xmin'], cncDest['ymin']),
-                                      'blockID':lastEvent['prop']['blockID']}
+                                        'dest':(cncDest['xmin'], cncDest['ymin']),
+                                        'blockID':lastEvent['prop']['blockID'],
+                                        'wip':False}
                                 }
-                        
                         self.publish(self.mqttConf['main2plc'], mesg)
+                        '''
+                        #muovo il traslo alla sorgente del blocco
+                        self.move(lastEvent['prop']['source'])
+                        moveData={'source':lastEvent['prop']['source'],
+                                  'dest':(cncDest['xmin'], cncDest['ymin']),
+                                  'blockID':lastEvent['prop']['blockID'],
+                                  'wip':False}
                         plcBusy = True
                         pass
                     else:
                         self.eventQueue.put(lastEvent)
                         pass
+                # new worki in progress from cnc    
                 elif  lastEvent['command'] == 'ADDWIP':
+                    self.log.info('TRYING TO ALLOCATE NEW WIP')
                     if plcBusy == False:
                         if self.getSeqLengthFromRecipe(lastEvent['prop']['recipeID'])==lastEvent['prop']['stepRecipe'] :
+                            '''
                             mesg = {'from':self.getName(),  # creation of the message to send to the PLC
                                         'to':'GestMag_PLC',
                                         'command':'MOVE',
                                         'prop':{'source':lastEvent['prop']['source'],
                                               'dest':(BUFFER_OUT, 0),
-                                              'blockID':lastEvent['prop']['blockID']}
+                                              'wipID':lastEvent['prop']['wipID'],
+                                              'blockID':''}
                                         }
                                 
                             self.publish(self.mqttConf['main2plc'], mesg)
+                            '''
+                            self.move(lastEvent['prop']['source'])
+                            moveData={'dest':(BUFFER_OUT, 0),
+                                      'blockID':lastEvent['prop']['blockID'],
+                                      'wip':True}
                             plcBusy = True
                         # trovare il cnc per il prox step 
                         cncReq = self.getTypeCNCFromRecipe(lastEvent['prop']['recipeID'], lastEvent['prop']['stepRecipe'])  # prima controllo se non ho CNC disponibili
                         for m in [mm for mm in self.machineList if mm.type == cncReq and mm.isReady()]:
                             if plcBusy == False:
+                                '''
                                 mesg = {'from':self.getName(),  # creation of the message to send to the PLC
                                         'to':'GestMag_PLC',
                                         'command':'MOVE',
                                         'prop':{'source':lastEvent['prop']['source'],
-                                              'dest':(m['addr'], 0),
+                                              'dest':m['addr'],
                                               'blockID':lastEvent['prop']['blockID']}
                                         }
                                 
                                 self.publish(self.mqttConf['main2plc'], mesg)
+                                '''
+                                self.move(lastEvent['prop']['source'])
                                 plcBusy = True
                                 pass
                             pass
                         if plcBusy == False: 
                             cncDest = self.choseDestination(cncReq)
+                            '''
                             mesg = {'from':self.getName(),  # creation of the message to send to the PLC
                                     'to':'GestMag_PLC',
                                     'command':'MOVE',
@@ -275,23 +295,17 @@ class GestMag_Main(GestMag_Thread):
                                     }
                                 
                             self.publish(self.mqttConf['main2plc'], mesg)
+                            '''
                             plcBusy = True
                             pass
                     else:
                         self.eventQueue.put(lastEvent)
                         pass
-                elif lastEvent['command'] == 'MOVE_OK':
-                    mesg = {'from':self.getName(),
-                          'to':'GestMag_DB',
-                          'command':'SETCELL',
-                          'prop':{'blockID':lastEvent['prop']['blockID'],
-                                  'cellStatus':status_CELL['busy'],
-                                  'cellX':lastEvent['prop']['dest'][0],
-                                  'cellY':lastEvent['prop']['dest'][1]}
-                            }
                     
+                elif lastEvent['command'] == 'MOVE_OK':
+                    self.loadCell(lastEvent['prop']['dest'], lastEvent['prop']['blockID'], lastEvent['prop']['wipID'])
+                    mesg={}
                     # aggiorna interfaccia
-                    self.publish(self.mqttConf['main2db'], mesg)
                     mesg['command'] = 'UPDCELL'
                     self.publish(self.mqttConf['main2db'], mesg)
                     time.sleep(0.1)
@@ -304,67 +318,125 @@ class GestMag_Main(GestMag_Thread):
                     plcBusy = False
                 else:
                     pass
-            time.sleep(0.5)
-            pass
-        
-            for m in [mm for mm in self.machineList if mm['status']==status_CNC['free']]:  # cycle used to check if there is a free CNC 
-                if plcBusy == False :
-                    for w in self.wipList:  # check first if m is needed by any WIP
-                        if m.type == self.getTypeCNCFromRecipe(w.recipeID, w.recipeStep):
-                            mesg = {'from':self.getName(),  # creation of the message to send to the PLC
-                                    'to':'GestMag_PLC',
-                                    'command':'MOVE',               ##trovare un modo per dire a CNC che arriva un blocco o wip
-                                    'prop':{'source':m,
-                                          'dest':(m['addr'], 0),
-                                          'blockID':'',
-                                          'wipID':w.wipID}  # wipID different from blockID?
-                                    }
-   
-                            self.publish(self.mqttConf['main2plc'], mesg)
-                            plcBusy = True
-                            pass
-                        pass
-                    
-                    otrtc = []  # OrdersThatRequireThisCnc
-                    Dmin = sqrt((self.conf['mag']['x'] + 10) ** 2 + (self.conf['mag']['y'] + 10) ** 2)
-                    bestBlock = ''
-                    
-                    if plcBusy == False and len(self.orderList)>0:                                                      
-                        for o in self.orderList:
-                            if m['type'] == self.getTypeCNCFromRecipe(o.recipeID, 0):
-                                for b in [bb for bb in self.blkList if bb.ready and bb.materialID == self.getMatIDFromRecipe(o.recipeID)]:
-                                    if self.checkDimension(o.recipeID, b.blockID):
-                                        Dist = self.distance((m.addr, 0), self.findPos(b.blockID))
-                                        if Dist < Dmin :
-                                            Dmin = Dist
-                                            bestBlock = b.blockID
-                                            pass
-                                    # misurare la distanza da m e trovare il blocco pi� vicino, con le dimensioni giuste
-                                    pass
-                                orderData = {'order':o,
-                                             'expDate': time.strptime(o.expDate,"%s"),
-                                             'Block':bestBlock}
-                                otrtc.append(orderData)
+            ###################################
+            # VALUTAZIONE CODA COMANDI LUNGHI #
+            ###################################
+            
+            #################################################
+            # VALUTAZIONE CNC LIBERI PER INIZIO LAVORAZIONE #
+            #################################################
+            if self.initCompleted:
+                for m in [mm for mm in self.machineList if mm['status']==status_CNC['free']]:  # cycle used to check if there is a free CNC 
+                    if plcBusy == False :
+                        for w in self.wipList:  # check first if m is needed by any WIP
+                            if m.type == self.getTypeCNCFromRecipe(w.recipeID, w.recipeStep):
+                                '''
+                                mesg = {'from':self.getName(),  # creation of the message to send to the PLC
+                                        'to':'GestMag_PLC',
+                                        'command':'MOVE',               ##trovare un modo per dire a CNC che arriva un blocco o wip
+                                        'prop':{'source':m,
+                                              'dest':m['addr'],
+                                              'blockID':'',
+                                              'wipID':w.wipID}  # wipID different from blockID?
+                                        }
+       
+                                self.publish(self.mqttConf['main2plc'], mesg)
+                                '''
+                                plcBusy = True
                                 pass
                             pass
-                        if len(otrtc) > 0: 
-                            earliestOrder=min(otrtc,key=lambda f: f['expDate'])
-                            mesg = {'from':self.getName(),  # creation of the message to send to the PLC
-                                    'to':'GestMag_PLC',
-                                    'command':'MOVE',
-                                    'prop':{'source':self.findPos(earliestOrder['block']),
-                                          'dest':(m['addr'], 0),
-                                          'blockID':earliestOrder['block'],
-                                          'wipID':''}                      
-                                    }
-                            self.publish(self.mqttConf['main2plc'], mesg)
-                            plcBusy = True
+                        
+                        otrtc = []  # OrdersThatRequireThisCnc
+                        Dmin = sqrt((self.conf['mag']['x'] + 10) ** 2 + (self.conf['mag']['y'] + 10) ** 2)
+                        bestBlock = ''
+                        
+                        if plcBusy == False and len(self.orderList)>0:                                                      
+                            for o in self.orderList:
+                                if m['type'] == self.getTypeCNCFromRecipe(o.recipeID, 0):
+                                    for b in [bb for bb in self.blkList if bb.ready and bb.materialID == self.getMatIDFromRecipe(o.recipeID)]:
+                                        if self.checkDimension(o.recipeID, b.blockID):
+                                            Dist = self.distance((m.addr, 0), self.findPos(b.blockID))
+                                            if Dist < Dmin :
+                                                Dmin = Dist
+                                                bestBlock = b.blockID
+                                                pass
+                                        # misurare la distanza da m e trovare il blocco pi� vicino, con le dimensioni giuste
+                                        pass
+                                    orderData = {'order':o,
+                                                 'expDate': time.strptime(o.expDate,"%s"),
+                                                 'Block':bestBlock}
+                                    otrtc.append(orderData)
+                                    pass
+                                pass
+                            if len(otrtc) > 0: 
+                                earliestOrder=min(otrtc,key=lambda f: f['expDate'])
+                                '''
+                                mesg = {'from':self.getName(),  # creation of the message to send to the PLC
+                                        'to':'GestMag_PLC',
+                                        'command':'MOVE',
+                                        'prop':{'source':self.findPos(earliestOrder['block']),
+                                              'dest':m['addr'],
+                                              'blockID':earliestOrder['block'],
+                                              'wipID':''}                      
+                                        }
+                                self.publish(self.mqttConf['main2plc'], mesg)
+                                '''
+                                plcBusy = True
+                                pass
                             pass
                         pass
-                    
                     pass
-                
                 pass
+            
+            #################################################
+            # VALUTAZIONE CNC LIBERI PER INIZIO LAVORAZIONE #
+            #################################################
+            
+            ###############################
+            # GESTIONE MOVIMENTI IN CORSO #
+            ###############################
+            if plcBusy:
+                #movimento in corso
+                if lastEvent['command'] == 'MOVE_WAIT': 
+                    #controllo se la direzione del movimento e' corretta
+                    if lastEvent['prop']['dest']==moveData['source']:
+                        self.log.info("MovingTo: {}".format(lastEvent['prop']['dest']))
+                    else:
+                        self.log.warning("Moving To Wrong Destination")
+                #movimento terminato
+                elif lastEvent['command'] == 'MOVE_OK':
+                    #controllo se la posizione attuale e' la sorgente del blocco
+                    if lastEvent['prop']['actPos']==moveData['source']:
+                        # se e' la sorgente lancio il comando ci movimento con caricamento
+                        self.moveLoad(moveData)
+                        #svuoto la cella, la macchina o il buffer di origine
+                        if moveData['source'][1] >= 1:
+                            self.emptyCell(moveData['source'])
+                        else:
+                            if moveData['source'] == self.bufferINPos:
+                                self.emptyBuffer(moveData['source'])
+                            else:    
+                                self.emptyCnc(moveData['source'])
+                    elif lastEvent['prop']['actPos']==moveData['dest']:
+                        #altrmenti considero lo spostamento terminato e il plc libero
+                        if moveData['dest'][1] >= 1:
+                            self.setCell(moveData['dest'],moveData['blockID'],moveData['wip'])
+                        else:
+                            if moveData['dest'] == self.bufferOUTPos:
+                                self.setBuffer(moveData['dest'], moveData['blockID'])
+                            else:  
+                                ''' 
+                                TODO: finire l'implementazione  nel caso la destinazione sia un cnc  
+                                    in moveData dovreanno finire anche le informazioni di programma e step da eseguire
+                                '''
+                                self.loadCnc(moveData['dest'],moveData['blockID'],moveData['wip'])
+                        plcBusy=False
+                    else:
+                        self.log.error("Qualcosa e' andato storto nel movimento!!!")
+                pass
+            ###############################
+            # GESTIONE MOVIMENTI IN CORSO #
+            ###############################
             
             time.sleep(0.5)
             pass
@@ -407,10 +479,78 @@ class GestMag_Main(GestMag_Thread):
         self.log.info('Initial Update of: Visualization')
         return True
     
+    def move(self, d):
+        mesg = {'from':self.getName(),  # creation of the message to send to the PLC
+                'to':'GestMag_PLC',
+                'command':'MOVE',
+                'prop':{ 'dest':d
+                        }
+                }
+        self.publish(self.mqttConf['main2plc'], mesg)
+        pass
+    
+    def moveLoad(self,d):
+        mesg = {'from':self.getName(),  # creation of the message to send to the PLC
+                'to':'GestMag_PLC',
+                'command':'MOVE',
+                'prop':{'dest':d['dest'],
+                        'blockID':d['blockID'],
+                        'wip':d['wip']
+                        }
+                }
+        self.publish(self.mqttConf['main2plc'], mesg)
+        pass
+    
     def getCell(self, x, y):    
         for c in self.cellList: 
             if c.addr[0] == x and c.addr[1] == y: 
                 return c
+            
+    def setCell(self, a, b, isWip):
+        mesg = {'from':self.getName(),
+                'to':'GestMag_DB',
+                'command':'SETCELL',
+                'prop':{'blockID':b,
+                        'wip':isWip,
+                        'cellStatus':status_CELL['busy'],
+                        'cellX':a[0],
+                        'cellY':a[1]}
+                        }
+        self.publish(self.mqttConf['main2db'], mesg)
+        pass
+    
+    def emptyCell(self, a):
+        msg = {'form':self.getName(),
+                     'to':'GestMag_DB',
+                     'command':'EMPCELL',
+                     'prop':{'cellX':a[0],
+                             'cellY':a[1]}}
+        self.publish(self.mqttConf['main2db'], msg)
+        pass
+           
+    def loadCnc(self, a, b, w):
+        msg={'form':self.getName(),
+             'to':'GestMag_DB',
+             'command':'LOADCNC',
+             'prop': {'name':'',
+                        'recipe':'',
+                        'step':'',
+                        'blockID':b,
+                        'wip': w
+                        }
+        }
+        self.publish(self.mqttConf['main2db'], msg)
+        pass
+    
+    def emptyCnc(self, a):
+        b=0
+        return b
+    
+    def setBuffer(self, a, b):
+        pass
+    
+    def emptyBuffer(self, a):
+        pass
     
     def choseDestination(self, cncReq):  # determination of the cell which the block will be sent to
         cncData = {'name':'', 'dist':0, 'xmin':0, 'ymin':0}      
@@ -419,26 +559,21 @@ class GestMag_Main(GestMag_Thread):
             if c['type'] == cncReq :
                 xmin = self.conf['mag']['x'] + 10
                 ymin = self.conf['mag']['y'] + 10
-                Dmin = sqrt(xmin ^ 2 + ymin ^ 2)
-                Xc = c['addr']
+                Dmin = sqrt(xmin**2 + ymin**2)
+                Cc = c['addr']
                 for x in range (0, self.conf['mag']['x']):
-                    for y in range(0, self.conf['mag']['y']):
+                    for y in range(1, self.conf['mag']['y']):
                         if self.getCell(x, y).isEmpty():  # #come ricavare se cell � libera o no
-                            D = self.distance((Xc, 0), (x, y))
+                            D = self.distance(Cc, (x, y))
                             if D < Dmin :
                                 xmin = x
                                 ymin = y
-                                Dmin = D
-                                pass
-                            pass
-                    pass
-                pass
+                                Dmin = D       
                 cncData = {'name':c['name'],
                          'dist':Dmin,
                          'xmin':xmin,
                          'ymin':ymin}
-                cncAvail.append(cncData)
-            pass
+                cncAvail.append(deepcopy(cncData))
         cnc = min(cncAvail, key=lambda f: f['dist'])
         return cnc
   
@@ -492,11 +627,11 @@ class GestMag_Main(GestMag_Thread):
             pass
         for x in self.recipeList:
             if x.recipeID == r:
-                if x.seq[0] == 'v':
+                if x.seq[0] == 'V':
                     return block.length >= x.n_ve_cut * x.w_ve_cut
-                elif x.seq[0] == 's':
+                elif x.seq[0] == 'S':
                     return block.length >= x.lSag
-                elif x.seq[0] == 'o':
+                elif x.seq[0] == 'O':
                     return block.height >= x.n_or_cut * x.w_or_cut
                     pass
                 pass

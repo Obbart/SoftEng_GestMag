@@ -65,6 +65,7 @@ class PLC_Com(GestMag_Thread):
                'prop':''
                }
         mesg['prop'] = b.getData()
+        mesg['prop']['source']=self.buffer.addr
         self.log.info(mesg)
         self.publish(self.mqttConf['plc2main'], mesg)
         pass
@@ -125,7 +126,7 @@ class PLC_Com(GestMag_Thread):
          
         self.log.info("Thread STARTED")
         last = time.time()
-        genTimeout = 60
+        genTimeout = 15
         lastEvent = ''
         
         while self.isRunning:

@@ -71,10 +71,10 @@ class CRANE(PLC_Sim):
 class BUFFER(PLC_Sim):
     def __init__(self,addr):
         super(BUFFER, self).__init__()
-        self.addr=addr
+        self.addr=(addr,0)
         pass
     def setAddr(self,addr):
-        self.addr=addr
+        self.addr=(addr,0)
         pass
     def simNewBlock(self,l):
         blkp={

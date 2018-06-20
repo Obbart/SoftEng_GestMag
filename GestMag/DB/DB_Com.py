@@ -37,7 +37,7 @@ class DB_Com(GestMag_Thread):
     
     #################### DB_FUNC ########################
     def dbQuery(self, q):
-        self.log.info(re.sub(' +', ' ', q))
+        self.log.debug(re.sub(' +', ' ', q))
         query = QtSql.QSqlQuery(self.db)
         mesg={'from':self.getName(),
                   'to':'GestMag_GUI',
@@ -377,15 +377,20 @@ class DB_Com(GestMag_Thread):
             return self.query2dict(query)
         pass
     def setCell(self,cellProp):
-        q='UPDATE Cells \
-            SET blockID=\'{blockID}\', cellStatus=\'{cellStatus}\' \
-            WHERE cellX={cellX} AND cellY={cellY}'
+        if cellProp['wip']:
+            q='UPDATE Cells \
+                SET  wipID=\'{blockID}\', cellStatus=\'{cellStatus}\' \
+                WHERE cellX={cellX} AND cellY={cellY}'
+        else:
+            q='UPDATE Cells \
+                SET blockID=\'{blockID}\', cellStatus=\'{cellStatus}\' \
+                WHERE cellX={cellX} AND cellY={cellY}'
         q=q.format(**cellProp)
         self.dbQuery(q)
         pass
     def emptyCell(self, cellProp):
         q='UPDATE Cells \
-            SET blockID=NULL, cellStatus=0 \
+            SET blockID=NULL, wipID=NULL, cellStatus=0 \
             WHERE cellX={cellX} AND cellY={cellY}'
         q=q.format(**cellProp)
         self.dbQuery(q)

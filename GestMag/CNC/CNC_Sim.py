@@ -13,7 +13,7 @@ prog_CNC = {"franco":0, "pippo":0}
 class CNC_Sim(object):
     def __init__(self, cncProp):
         self.name = cncProp['name']
-        self.addr = cncProp['addr']
+        self.addr = tuple(cncProp['addr'])
         self.type = cncProp['type']
         self.status = status_CNC["free"]
         self.nCuts = 0
